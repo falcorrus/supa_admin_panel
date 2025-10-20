@@ -1,0 +1,5 @@
+{
+  "name": "Supabase Admin Panel",
+  "description": "A sleek, modern admin panel to visually manage your Supabase database. Browse, edit, add, and delete data from your tables with an intuitive user interface.",
+  "requestFramePermissions": []
+}
