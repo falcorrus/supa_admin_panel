@@ -24,8 +24,12 @@ export default defineConfig(({ mode }) => {
       },
       build: {
         rollupOptions: {
-          external: []
-        }
+          external: [],
+        },
+        outDir: 'dist',
+      },
+      css: {
+        postcss: './postcss.config.js',
       }
     };
 });
