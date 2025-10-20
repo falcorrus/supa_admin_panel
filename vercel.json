@@ -11,6 +11,13 @@
   ],
   "routes": [
     {
+      "src": "/static/(.*)",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      },
+      "continue": true
+    },
+    {
       "src": "/assets/(.*)",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
@@ -18,8 +25,14 @@
       "continue": true
     },
     {
+      "handle": "resource"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/index.html",
+      "headers": {
+        "Cache-Control": "public, max-age=0"
+      }
     }
   ]
 }

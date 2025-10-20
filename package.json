@@ -13,11 +13,12 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "@supabase/supabase-js": "^2.75.1",
-    "config": "latest",
     "tslib": "^2.6.2"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
