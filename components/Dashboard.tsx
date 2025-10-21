@@ -155,13 +155,21 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
     const savedSelectedTable = localStorage.getItem(selectedTableKey);
     
-    if (savedSelectedTable && tables.some(table => table.table_name === savedSelectedTable)) {
-      setSelectedTable(savedSelectedTable);
-    } else if (tables.length > 0 && !selectedTable) {
-      // If no saved table or it doesn't exist anymore, select the first one if available
-      setSelectedTable(tables[0].table_name);
+    // Only set the selected table if we have tables and no table is currently selected
+    if (tables.length > 0) {
+      if (savedSelectedTable && tables.some(table => table.table_name === savedSelectedTable)) {
+        // Only update if it's different from current selection
+        if (selectedTable !== savedSelectedTable) {
+          setSelectedTable(savedSelectedTable);
+        }
+      } else {
+        // If no saved table or it doesn't exist anymore, select the first one if available
+        if (!selectedTable && tables.length > 0) {
+          setSelectedTable(tables[0].table_name);
+        }
+      }
     }
-  }, [session.user.id, tables]);
+  }, [selectedTable, session.user.id, tables]);
 
   const fetchTables = useCallback(async () => {
     try {
