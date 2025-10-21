@@ -47,7 +47,7 @@ const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, cust
             ) : visibilityState === 'none' ? (
               <VisibilityNoneIcon className="w-6 h-6 text-gray-400" />
             ) : (
-              <VisibilityMixedIcon className="w-6 h-6 text-yellow-400" />
+              <VisibilityMixedIcon className="w-6 h-6 text-white" />
             )}
           </button>
         </div>
