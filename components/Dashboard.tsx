@@ -25,6 +25,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [tableVisibility, setTableVisibility] = useState<Record<string, boolean>>({});
   const [customTableVisibility, setCustomTableVisibility] = useState<Record<string, boolean> | null>(null);
+  const [visibilityMode, setVisibilityMode] = useState<'all' | 'none' | 'custom'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
@@ -46,8 +47,13 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         const allTrue = values.every(v => v === true);
         const allFalse = values.every(v => v === false);
         
-        if (!allTrue && !allFalse) {
-          // This is a custom selection, save it
+        if (allTrue) {
+          setVisibilityMode('all');
+        } else if (allFalse) {
+          setVisibilityMode('none');
+        } else {
+          // This is a custom selection
+          setVisibilityMode('custom');
           setCustomTableVisibility(parsedVisibility);
         }
       } catch (e) {
@@ -58,7 +64,16 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
           initialVisibility[table.table_name] = true;
         });
         setTableVisibility(initialVisibility);
+        setVisibilityMode('all');
       }
+    } else {
+        // If no saved visibility, default to all visible
+        const initialVisibility: Record<string, boolean> = {};
+        tables.forEach(table => {
+          initialVisibility[table.table_name] = true;
+        });
+        setTableVisibility(initialVisibility);
+        setVisibilityMode('all');
     }
   }, [session.user.id]);
 
@@ -176,15 +191,33 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
   };
 
   const toggleTableVisibility = (tableName: string) => {
-    setTableVisibility(prev => ({
-      ...prev,
-      [tableName]: !prev[tableName] // Toggle the visibility state
-    }));
+    setTableVisibility(prev => {
+      const newVisibility = {
+        ...prev,
+        [tableName]: !prev[tableName] // Toggle the visibility state
+      };
+      return newVisibility;
+    });
+    
+    // When a single table is toggled, we're now in custom mode
+    setVisibilityMode('custom');
+    
+    // Save the custom visibility state
+    setCustomTableVisibility(prev => {
+      if (!prev) {
+        // If no previous custom state, create one based on current state
+        return { ...tableVisibility, [tableName]: !tableVisibility[tableName] };
+      }
+      return {
+        ...prev,
+        [tableName]: !prev[tableName] // Toggle the visibility state
+      };
+    });
   };
 
   const toggleAllTables = (show: boolean) => {
-    // Save the current state as custom selection before changing it
-    if (!customTableVisibility) {
+    // Save the current state as custom selection if we're in custom mode
+    if (visibilityMode === 'custom' && !customTableVisibility) {
       setCustomTableVisibility({ ...tableVisibility });
     }
     
@@ -195,6 +228,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       });
       return newVisibility;
     });
+    
+    // Update the visibility mode
+    setVisibilityMode(show ? 'all' : 'none');
   };
 
   const handleSortChange = (tableName: string, config: SortConfig) => {
@@ -261,6 +297,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
               user={session.user} 
               tables={tables}
               tableVisibility={tableVisibility}
+              visibilityMode={visibilityMode}
               toggleTableVisibility={toggleTableVisibility}
               toggleAllTables={toggleAllTables}
             />

@@ -8,26 +8,19 @@ interface SettingsProps {
   user: User | null;
   tables: Table[];
   tableVisibility: Record<string, boolean>;
+  visibilityMode: 'all' | 'none' | 'custom';
   toggleTableVisibility: (tableName: string) => void;
   toggleAllTables: (show: boolean) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, toggleTableVisibility, toggleAllTables }) => {
+const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, visibilityMode, toggleTableVisibility, toggleAllTables }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
 
-  // Determine visibility state for the icon
   const visibilityState = useMemo(() => {
-    const values = Object.values(tableVisibility);
-    const visibleCount = values.filter(visible => visible).length;
-    const totalCount = values.length;
-    
-    if (totalCount === 0) return 'all'; // Default to all visible if no tables
-    if (visibleCount === 0) return 'none';
-    if (visibleCount === totalCount) return 'all';
-    return 'mixed'; // This represents custom state
-  }, [tableVisibility]);
+    return visibilityMode;
+  }, [visibilityMode]);
 
   const toggleAllVisibility = () => {
     if (visibilityState === 'all') {
