@@ -8,12 +8,13 @@ interface SettingsProps {
   user: User | null;
   tables: Table[];
   tableVisibility: Record<string, boolean>;
+  customTableVisibility: Record<string, boolean> | null;
   visibilityMode: 'all' | 'none' | 'custom';
   toggleTableVisibility: (tableName: string) => void;
-  toggleAllTables: (show: boolean) => void;
+  cycleVisibilityMode: () => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, visibilityMode, toggleTableVisibility, toggleAllTables }) => {
+const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, customTableVisibility, visibilityMode, toggleTableVisibility, cycleVisibilityMode }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -23,16 +24,7 @@ const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, visi
   }, [visibilityMode]);
 
   const toggleAllVisibility = () => {
-    if (visibilityState === 'all') {
-      // If all are visible, hide all
-      toggleAllTables(false);
-    } else if (visibilityState === 'none') {
-      // If all are hidden, show all
-      toggleAllTables(true);
-    } else {
-      // If mixed (custom), hide all
-      toggleAllTables(false);
-    }
+    cycleVisibilityMode();
   };
 
   return (

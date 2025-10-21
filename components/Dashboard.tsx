@@ -215,6 +215,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     });
   };
 
+  // Enhanced function to cycle through all visibility modes
   const toggleAllTables = (show: boolean) => {
     // Save the current state as custom selection if we're in custom mode
     if (visibilityMode === 'custom' && !customTableVisibility) {
@@ -231,6 +232,27 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     
     // Update the visibility mode
     setVisibilityMode(show ? 'all' : 'none');
+  };
+  
+  // Function to specifically handle cycling through the three states
+  const cycleVisibilityMode = () => {
+    if (visibilityMode === 'all') {
+      // Go from all to none
+      toggleAllTables(false); // Hide all
+    } else if (visibilityMode === 'none') {
+      // Go from none to custom (if we have a custom state saved) otherwise to all
+      if (customTableVisibility && Object.keys(customTableVisibility).length > 0) {
+        // If we have custom visibility saved, restore it
+        setTableVisibility(customTableVisibility);
+        setVisibilityMode('custom');
+      } else {
+        // If no custom visibility saved, go to all
+        toggleAllTables(true);
+      }
+    } else { // custom
+      // Go from custom to all
+      toggleAllTables(true);
+    }
   };
 
   const handleSortChange = (tableName: string, config: SortConfig) => {
@@ -297,9 +319,10 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
               user={session.user} 
               tables={tables}
               tableVisibility={tableVisibility}
+              customTableVisibility={customTableVisibility}
               visibilityMode={visibilityMode}
               toggleTableVisibility={toggleTableVisibility}
-              toggleAllTables={toggleAllTables}
+              cycleVisibilityMode={cycleVisibilityMode}
             />
           ) : selectedTable ? (
             <DataTable 
