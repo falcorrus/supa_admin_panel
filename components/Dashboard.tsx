@@ -150,27 +150,6 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     }
   }, [selectedTable, session.user.id]);
 
-  // Load selected table from localStorage on mount
-  useEffect(() => {
-    const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
-    const savedSelectedTable = localStorage.getItem(selectedTableKey);
-    
-    // Only set the selected table if we have tables and no table is currently selected
-    if (tables.length > 0) {
-      if (savedSelectedTable && tables.some(table => table.table_name === savedSelectedTable)) {
-        // Only update if it's different from current selection
-        if (selectedTable !== savedSelectedTable) {
-          setSelectedTable(savedSelectedTable);
-        }
-      } else {
-        // If no saved table or it doesn't exist anymore, select the first one if available
-        if (!selectedTable && tables.length > 0) {
-          setSelectedTable(tables[0].table_name);
-        }
-      }
-    }
-  }, [selectedTable, session.user.id, tables]);
-
   const fetchTables = useCallback(async () => {
     try {
       setError(null);
@@ -178,7 +157,22 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       const data = await getTables();
       setTables(data || []);
       if (data && data.length > 0) {
-        setSelectedTable(data[0].table_name);
+        // Don't set selected table here, let the useEffect handle loading from localStorage
+        // Check if there's a saved selected table for this user
+        const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
+        const savedSelectedTable = localStorage.getItem(selectedTableKey);
+        
+        if (savedSelectedTable && data.some(table => table.table_name === savedSelectedTable)) {
+          // Use the saved table if it exists in the current data
+          if (selectedTable !== savedSelectedTable) {
+            setSelectedTable(savedSelectedTable);
+          }
+        } else {
+          // If no saved table or it doesn't exist anymore, select the first one if no table is currently selected
+          if (!selectedTable) {
+            setSelectedTable(data[0].table_name);
+          }
+        }
       } else {
         setSelectedTable(null);
       }
@@ -187,7 +181,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedTable, session.user.id]);
 
   useEffect(() => {
     fetchTables();
