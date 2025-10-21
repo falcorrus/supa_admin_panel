@@ -27,7 +27,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   // Load table order from localStorage
   const [orderedTables, setOrderedTables] = useState<Table[]>(tables);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   
   useEffect(() => {
     // Load table order from localStorage on initial render
@@ -57,68 +56,26 @@ const Sidebar: React.FC<SidebarProps> = ({
     e.currentTarget.classList.add('opacity-50');
   };
 
-  // Handle global drag over
-  const handleGlobalDragOver = (e: React.DragEvent) => {
+  // Handle drag over
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-  };
-
-  // Handle drag enter
-  const handleDragEnter = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    setDragOverIndex(index);
-  };
-
-  // Handle drag over with position-based insertion
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    
-    // Get the element's bounding rectangle
-    const rect = e.currentTarget.getBoundingClientRect();
-    // Calculate the vertical center of the element
-    const centerY = rect.top + rect.height / 2;
-    
-    // If the cursor is in the top half, show insertion line above, else below
-    if (e.clientY < centerY) {
-      setDragOverIndex(index);
-    } else {
-      setDragOverIndex(index + 1);
-    }
-  };
-
-  // Handle drag leave
-  const handleDragLeave = () => {
-    setDragOverIndex(null);
   };
 
   // Handle drop
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     e.currentTarget.classList.remove('opacity-50');
-    setDragOverIndex(null);
     
     const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
     
-    // Use the dragOverIndex to determine the actual drop position
-    let actualDropIndex = dragOverIndex !== null ? dragOverIndex : dropIndex;
-    
-    // If dragOverIndex is beyond the array length, adjust it
-    if (actualDropIndex > orderedTables.length) {
-      actualDropIndex = orderedTables.length;
-    }
-    
-    if (dragIndex !== actualDropIndex) {
+    if (dragIndex !== dropIndex) {
       const newOrderedTables = [...orderedTables];
       const draggedTable = newOrderedTables[dragIndex];
-      
-      // Adjust the drop index if the dragged item was before the drop position
-      if (dragIndex < actualDropIndex) {
-        actualDropIndex -= 1;
-      }
       
       // Remove the dragged item
       newOrderedTables.splice(dragIndex, 1);
       // Insert it at the new position
-      newOrderedTables.splice(actualDropIndex, 0, draggedTable);
+      newOrderedTables.splice(dropIndex, 0, draggedTable);
       
       setOrderedTables(newOrderedTables);
       
@@ -132,8 +89,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   // Handle drag end
-  const handleDragEnd = () => {
-    setDragOverIndex(null);
+  const handleDragEnd = (e: React.DragEvent) => {
+    e.currentTarget.classList.remove('opacity-50');
   };
 
   if (isCollapsed) {
@@ -173,19 +130,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                   key={table.table_name}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragEnter={(e) => handleDragEnter(e, index)}
-                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={handleDragEnd}
                   className="cursor-move"
                 >
-                  {dragOverIndex === index && index === 0 && (
-                    <div className="w-full h-0.5 bg-emerald-400 mb-1 rounded-full"></div>
-                  )}
-                  {dragOverIndex === index && index > 0 && (
-                    <div className="w-full h-0.5 bg-emerald-400 my-1 rounded-full"></div>
-                  )}
                   <button
                     onClick={() => {
                       onSelectTable(table.table_name);
@@ -194,15 +143,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                     className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out transform hover:scale-[1.02] ${
                       selectedTable === table.table_name && selectedView === 'tables'
                         ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
-                        : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+                        : 'text-white hover:bg-gray-700/50'
                     }`}
                   >
                     <TableIcon className="w-5 h-5 mr-3 flex-shrink-0" />
                     <span className="truncate">{table.table_name}</span>
                   </button>
-                  {dragOverIndex === index + 1 && (
-                    <div className="w-full h-0.5 bg-emerald-400 mt-1 rounded-full"></div>
-                  )}
                 </div>
               ))}
             </div>
