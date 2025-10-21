@@ -19,13 +19,14 @@ const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, togg
 
   // Determine visibility state for the icon
   const visibilityState = useMemo(() => {
-    const visibleCount = Object.values(tableVisibility).filter(visible => visible).length;
-    const totalCount = Object.keys(tableVisibility).length;
+    const values = Object.values(tableVisibility);
+    const visibleCount = values.filter(visible => visible).length;
+    const totalCount = values.length;
     
     if (totalCount === 0) return 'all'; // Default to all visible if no tables
     if (visibleCount === 0) return 'none';
     if (visibleCount === totalCount) return 'all';
-    return 'mixed';
+    return 'mixed'; // This represents custom state
   }, [tableVisibility]);
 
   const toggleAllVisibility = () => {
@@ -36,8 +37,8 @@ const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, togg
       // If all are hidden, show all
       toggleAllTables(true);
     } else {
-      // If mixed, show all
-      toggleAllTables(true);
+      // If mixed (custom), hide all
+      toggleAllTables(false);
     }
   };
 
@@ -53,7 +54,7 @@ const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, togg
             className="p-2 rounded-md hover:bg-gray-700 transition-colors"
             title={
               visibilityState === 'all' ? 'Скрыть все' : 
-              visibilityState === 'none' ? 'Показать все' : 'Показать все'
+              visibilityState === 'none' ? 'Показать все' : 'Скрыть все'
             }
           >
             {visibilityState === 'all' ? (

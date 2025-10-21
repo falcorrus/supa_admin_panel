@@ -24,6 +24,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
   const [selectedView, setSelectedView] = useState<'tables' | 'settings'>('tables');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [tableVisibility, setTableVisibility] = useState<Record<string, boolean>>({});
+  const [customTableVisibility, setCustomTableVisibility] = useState<Record<string, boolean> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
@@ -39,6 +40,16 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       try {
         const parsedVisibility: Record<string, boolean> = JSON.parse(savedVisibility);
         setTableVisibility(parsedVisibility);
+        
+        // Check if it's a custom selection by checking if it's neither all true nor all false
+        const values = Object.values(parsedVisibility);
+        const allTrue = values.every(v => v === true);
+        const allFalse = values.every(v => v === false);
+        
+        if (!allTrue && !allFalse) {
+          // This is a custom selection, save it
+          setCustomTableVisibility(parsedVisibility);
+        }
       } catch (e) {
         console.error('Error parsing table visibility from localStorage', e);
         // If parsing fails, initialize all tables as visible
@@ -63,7 +74,8 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         // Add any new tables that weren't in the previous state
         tables.forEach(table => {
           if (!(table.table_name in newVisibility)) {
-            newVisibility[table.table_name] = true; // New tables are visible by default
+            // For new tables, use the current state if we have custom selection, else default to visible
+            newVisibility[table.table_name] = customTableVisibility ? true : true; // Default to visible
           }
         });
         
@@ -76,8 +88,33 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         
         return newVisibility;
       });
+      
+      // Also update customTableVisibility if needed
+      if (customTableVisibility) {
+        setCustomTableVisibility(prev => {
+          if (!prev) return null;
+          
+          const newCustomVisibility = { ...prev };
+          
+          // Add any new tables to custom selection
+          tables.forEach(table => {
+            if (!(table.table_name in newCustomVisibility)) {
+              newCustomVisibility[table.table_name] = true; // New tables default to visible in custom selection
+            }
+          });
+          
+          // Remove any tables that no longer exist
+          Object.keys(newCustomVisibility).forEach(tableName => {
+            if (!tables.some(table => table.table_name === tableName)) {
+              delete newCustomVisibility[tableName];
+            }
+          });
+          
+          return newCustomVisibility;
+        });
+      }
     }
-  }, [tables, session.user.id]);
+  }, [tables, session.user.id, customTableVisibility]);
 
   // Сохранение изменений
   useEffect(() => {
@@ -87,6 +124,29 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       localStorage.setItem(visibilityKey, JSON.stringify(tableVisibility));
     }
   }, [tableVisibility, session.user.id]); // Срабатывает при изменении видимости
+  
+  // Save selected table to localStorage when it changes
+  useEffect(() => {
+    const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
+    if (selectedTable) {
+      localStorage.setItem(selectedTableKey, selectedTable);
+    } else {
+      localStorage.removeItem(selectedTableKey); // Remove if no table is selected
+    }
+  }, [selectedTable, session.user.id]);
+
+  // Load selected table from localStorage on mount
+  useEffect(() => {
+    const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
+    const savedSelectedTable = localStorage.getItem(selectedTableKey);
+    
+    if (savedSelectedTable && tables.some(table => table.table_name === savedSelectedTable)) {
+      setSelectedTable(savedSelectedTable);
+    } else if (tables.length > 0 && !selectedTable) {
+      // If no saved table or it doesn't exist anymore, select the first one if available
+      setSelectedTable(tables[0].table_name);
+    }
+  }, [session.user.id, tables]);
 
   const fetchTables = useCallback(async () => {
     try {
@@ -123,6 +183,11 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
   };
 
   const toggleAllTables = (show: boolean) => {
+    // Save the current state as custom selection before changing it
+    if (!customTableVisibility) {
+      setCustomTableVisibility({ ...tableVisibility });
+    }
+    
     setTableVisibility(prev => {
       const newVisibility = { ...prev };
       Object.keys(newVisibility).forEach(tableName => {
