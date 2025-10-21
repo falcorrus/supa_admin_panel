@@ -1,18 +1,44 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../services/supabase';
 import { Table } from '../types';
+import { VisibilityAllIcon, VisibilityNoneIcon, VisibilityMixedIcon } from './Icons';
 
 interface SettingsProps {
   user: User | null;
   tables: Table[];
   tableVisibility: Record<string, boolean>;
   toggleTableVisibility: (tableName: string) => void;
+  toggleAllTables: (show: boolean) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, toggleTableVisibility }) => {
+const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, toggleTableVisibility, toggleAllTables }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
+  };
+
+  // Determine visibility state for the icon
+  const visibilityState = useMemo(() => {
+    const visibleCount = Object.values(tableVisibility).filter(visible => visible).length;
+    const totalCount = Object.keys(tableVisibility).length;
+    
+    if (totalCount === 0) return 'all'; // Default to all visible if no tables
+    if (visibleCount === 0) return 'none';
+    if (visibleCount === totalCount) return 'all';
+    return 'mixed';
+  }, [tableVisibility]);
+
+  const toggleAllVisibility = () => {
+    if (visibilityState === 'all') {
+      // If all are visible, hide all
+      toggleAllTables(false);
+    } else if (visibilityState === 'none') {
+      // If all are hidden, show all
+      toggleAllTables(true);
+    } else {
+      // If mixed, show all
+      toggleAllTables(true);
+    }
   };
 
   return (
@@ -20,22 +46,25 @@ const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, togg
       <h1 className="text-2xl font-bold mb-6 text-white">Настройки</h1>
       
       <div className="bg-gray-800 rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4 text-white">Профиль</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
-            <input
-              type="email"
-              value={user?.email || ''}
-              disabled
-              className="w-full px-3 py-2 bg-gray-700 text-white rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-white">Видимость таблиц</h2>
+          <button
+            onClick={toggleAllVisibility}
+            className="p-2 rounded-md hover:bg-gray-700 transition-colors"
+            title={
+              visibilityState === 'all' ? 'Скрыть все' : 
+              visibilityState === 'none' ? 'Показать все' : 'Показать все'
+            }
+          >
+            {visibilityState === 'all' ? (
+              <VisibilityAllIcon className="w-6 h-6 text-emerald-400" />
+            ) : visibilityState === 'none' ? (
+              <VisibilityNoneIcon className="w-6 h-6 text-gray-400" />
+            ) : (
+              <VisibilityMixedIcon className="w-6 h-6 text-yellow-400" />
+            )}
+          </button>
         </div>
-      </div>
-
-      <div className="bg-gray-800 rounded-lg p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4 text-white">Видимость таблиц</h2>
         <p className="text-gray-400 mb-4">Нажмите на таблицу, чтобы скрыть/показать в боковой панели</p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {tables.map((table) => (

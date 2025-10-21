@@ -122,6 +122,16 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     }));
   };
 
+  const toggleAllTables = (show: boolean) => {
+    setTableVisibility(prev => {
+      const newVisibility = { ...prev };
+      Object.keys(newVisibility).forEach(tableName => {
+        newVisibility[tableName] = show;
+      });
+      return newVisibility;
+    });
+  };
+
   const handleSortChange = (tableName: string, config: SortConfig) => {
     setSortConfigs(prev => ({
       ...prev,
@@ -187,6 +197,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
               tables={tables}
               tableVisibility={tableVisibility}
               toggleTableVisibility={toggleTableVisibility}
+              toggleAllTables={toggleAllTables}
             />
           ) : selectedTable ? (
             <DataTable 
