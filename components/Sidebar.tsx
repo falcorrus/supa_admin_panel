@@ -57,8 +57,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     e.currentTarget.classList.add('opacity-50');
   };
 
-  // Handle drag over
-  const handleDragOver = (e: React.DragEvent) => {
+  // Handle global drag over
+  const handleGlobalDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
@@ -66,6 +66,23 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleDragEnter = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     setDragOverIndex(index);
+  };
+
+  // Handle drag over with position-based insertion
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    
+    // Get the element's bounding rectangle
+    const rect = e.currentTarget.getBoundingClientRect();
+    // Calculate the vertical center of the element
+    const centerY = rect.top + rect.height / 2;
+    
+    // If the cursor is in the top half, show insertion line above, else below
+    if (e.clientY < centerY) {
+      setDragOverIndex(index);
+    } else {
+      setDragOverIndex(index + 1);
+    }
   };
 
   // Handle drag leave
@@ -81,14 +98,27 @@ const Sidebar: React.FC<SidebarProps> = ({
     
     const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
     
-    if (dragIndex !== dropIndex) {
+    // Use the dragOverIndex to determine the actual drop position
+    let actualDropIndex = dragOverIndex !== null ? dragOverIndex : dropIndex;
+    
+    // If dragOverIndex is beyond the array length, adjust it
+    if (actualDropIndex > orderedTables.length) {
+      actualDropIndex = orderedTables.length;
+    }
+    
+    if (dragIndex !== actualDropIndex) {
       const newOrderedTables = [...orderedTables];
       const draggedTable = newOrderedTables[dragIndex];
+      
+      // Adjust the drop index if the dragged item was before the drop position
+      if (dragIndex < actualDropIndex) {
+        actualDropIndex -= 1;
+      }
       
       // Remove the dragged item
       newOrderedTables.splice(dragIndex, 1);
       // Insert it at the new position
-      newOrderedTables.splice(dropIndex, 0, draggedTable);
+      newOrderedTables.splice(actualDropIndex, 0, draggedTable);
       
       setOrderedTables(newOrderedTables);
       
@@ -143,15 +173,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                   key={table.table_name}
                   draggable
                   onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={handleDragOver}
+                  onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnter={(e) => handleDragEnter(e, index)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={handleDragEnd}
                   className="cursor-move"
                 >
-                  {dragOverIndex === index && (
+                  {dragOverIndex === index && index === 0 && (
                     <div className="w-full h-0.5 bg-emerald-400 mb-1 rounded-full"></div>
+                  )}
+                  {dragOverIndex === index && index > 0 && (
+                    <div className="w-full h-0.5 bg-emerald-400 my-1 rounded-full"></div>
                   )}
                   <button
                     onClick={() => {
@@ -167,6 +200,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <TableIcon className="w-5 h-5 mr-3 flex-shrink-0" />
                     <span className="truncate">{table.table_name}</span>
                   </button>
+                  {dragOverIndex === index + 1 && (
+                    <div className="w-full h-0.5 bg-emerald-400 mt-1 rounded-full"></div>
+                  )}
                 </div>
               ))}
             </div>
