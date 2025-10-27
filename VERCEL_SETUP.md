@@ -31,9 +31,10 @@ To deploy this application on Vercel, you need to set the following environment 
 
 When deploying to production:
 
-1. Avoid using `VITE_SUPABASE_SERVICE_ROLE_KEY` in production environment
-2. Instead, use the RPC function approach for accessing metadata
-3. Make sure to properly configure Row Level Security (RLS) policies in your Supabase project
-4. Review and limit database permissions to only what's necessary for your application
+1. The `VITE_SUPABASE_SERVICE_ROLE_KEY` is now securely used on the server-side through API routes
+2. Client-side code calls secure API route `/api/tables` instead of accessing Supabase directly with service_role_key
+3. For maximum security, you can also use the RPC function approach as a fallback
+4. Make sure to properly configure Row Level Security (RLS) policies in your Supabase project
+5. Review and limit database permissions to only what's necessary for your application
 
 Note: These variables will be injected at build time and made available to your client-side code through `import.meta.env`.
