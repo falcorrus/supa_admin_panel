@@ -26,10 +26,40 @@
 
 ## 4. Настройка политик доступа
 
-Для тестирования вы можете временно установить более разрешительные политики:
+Для полноценной работы приложения необходимо настроить политики доступа:
+
 1. Перейдите в **Table Editor**
-2. Выберите нужные таблицы
-3. Установите политики доступа, разрешающие чтение/запись для аутентифицированных пользователей
+2. Для каждой таблицы, к которой нужен доступ:
+   - Перейдите на вкладку **Policies**
+   - Создайте политики для операций:
+     - `SELECT` - просмотр данных
+     - `INSERT` - добавление строк
+     - `UPDATE` - редактирование строк
+     - `DELETE` - удаление строк
+   - Настройте условия на свое усмотрение (например, для тестирования можно разрешить всем аутентифицированным пользователям)
+
+Пример политики для таблицы `todos`:
+```sql
+-- Allow authenticated users to select all todos
+CREATE POLICY "Allow read access for authenticated users" ON todos
+FOR SELECT TO authenticated
+USING (true);
+
+-- Allow authenticated users to insert todos
+CREATE POLICY "Allow insert access for authenticated users" ON todos
+FOR INSERT TO authenticated
+WITH CHECK (true);
+
+-- Allow authenticated users to update their todos
+CREATE POLICY "Allow update access for authenticated users" ON todos
+FOR UPDATE TO authenticated
+USING (true);
+
+-- Allow authenticated users to delete their todos
+CREATE POLICY "Allow delete access for authenticated users" ON todos
+FOR DELETE TO authenticated
+USING (true);
+```
 
 ## 5. Создание тестового пользователя
 
@@ -59,7 +89,7 @@ VITE_SUPABASE_SERVICE_ROLE_KEY=ваш_service_role_key
 
 ```sql
 create or replace function get_user_tables()
-returns table (table_name text) as $
+returns table (table_name text) as $$
 begin
   return query
   select t.table_name::text
@@ -70,7 +100,21 @@ begin
     and not t.table_name like 'sql_%'
   order by t.table_name;
 end;
-$ language plpgsql;
+$$ language plpgsql;
 ```
 
 После этого вы можете использовать анонимный ключ для вызова этой функции.
+
+## 8. Функциональные возможности приложения
+
+Admin Panel предоставляет следующие возможности:
+
+- **Аутентификация**: Вход с использованием email/пароль
+- **Просмотр таблиц**: Отображение всех таблиц в базе данных
+- **Редактирование данных**: Возможность редактировать отдельные ячейки в таблицах
+- **Управление данными**: Добавление и удаление строк
+- **Настройка видимости**: Настройка видимости таблиц в интерфейсе
+- **Сортировка данных**: Сортировка по столбцам
+- **Дизайн интерфейса**: Поддержка двух версий интерфейса (Tailwind CSS и Chakra UI)
+
+Для подробной информации о функциях и архитектуре интеграции обратитесь к документации: [Документация по интеграции с Supabase](SUPABASE_INTEGRATION_DOCS.md)

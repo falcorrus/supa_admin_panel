@@ -7,7 +7,7 @@ import Spinner from './Spinner';
 interface SidebarProps {
   tables: Table[];
   selectedTable: string | null;
-  selectedView: 'tables' | 'settings';
+  selectedView: 'tables' | 'settings' | 'settings-chakra';
   onSelectTable: (tableName: string) => void;
   onSelectView: (view: 'tables' | 'settings') => void;
   isCollapsed: boolean;
@@ -152,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               ))}
             </div>
-            <div className="pt-4 mt-auto border-t border-gray-700/50">
+            <div className="pt-4 mt-auto border-t border-gray-700/50 space-y-2">
               <button
                 onClick={() => onSelectView('settings')}
                 className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out transform hover:scale-[1.02] ${
@@ -162,7 +162,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }`}
               >
                 <SettingsIcon className="w-5 h-5 mr-3 flex-shrink-0" />
-                <span>Настройки</span>
+                <span>Настройки (Tailwind)</span>
+              </button>
+              <button
+                onClick={() => onSelectView('settings-chakra')}
+                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out transform hover:scale-[1.02] ${
+                  selectedView === 'settings-chakra'
+                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md'
+                    : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
+                }`}
+              >
+                <SettingsIcon className="w-5 h-5 mr-3 flex-shrink-0" />
+                <span>Настройки (Chakra UI)</span>
               </button>
             </div>
           </>

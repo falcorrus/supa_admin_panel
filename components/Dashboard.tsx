@@ -6,6 +6,7 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import DataTable from './DataTable';
 import Settings from './Settings';
+import SettingsChakra from './SettingsChakra';
 import { Table, SortConfig } from '../types';
 import Spinner from './Spinner';
 import Toast from './Toast';
@@ -21,7 +22,7 @@ const TABLE_VISIBILITY_STORAGE_KEY_PREFIX = 'supabaseAdminTableVisibility';
 const Dashboard: React.FC<DashboardProps> = ({ session }) => {
   const [tables, setTables] = useState<Table[]>([]);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [selectedView, setSelectedView] = useState<'tables' | 'settings'>('tables');
+  const [selectedView, setSelectedView] = useState<'tables' | 'settings' | 'settings-chakra'>('tables');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [tableVisibility, setTableVisibility] = useState<Record<string, boolean>>({});
   const [customTableVisibility, setCustomTableVisibility] = useState<Record<string, boolean> | null>(null);
@@ -332,6 +333,17 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
              </div>
           ) : selectedView === 'settings' ? (
             <Settings 
+              user={session.user} 
+              tables={tables}
+              tableVisibility={tableVisibility}
+              customTableVisibility={customTableVisibility}
+              visibilityMode={visibilityMode}
+              toggleTableVisibility={toggleTableVisibility}
+              cycleVisibilityMode={cycleVisibilityMode}
+              tablesFetchMethod={tablesFetchMethod}
+            />
+          ) : selectedView === 'settings-chakra' ? (
+            <SettingsChakra 
               user={session.user} 
               tables={tables}
               tableVisibility={tableVisibility}

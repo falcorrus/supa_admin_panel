@@ -4,6 +4,7 @@ import { getTableData, updateRow, deleteRow, insertRow } from '../services/supab
 import { EditingCell, ToastType, SortConfig } from '../types';
 import Spinner from './Spinner';
 import { PlusIcon, TrashIcon, CheckIcon, XIcon, ArrowUpIcon, ArrowDownIcon } from './Icons';
+import { Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton, Button, Textarea, FormControl, FormLabel } from '@chakra-ui/react';
 
 interface DataTableProps {
   tableName: string;
@@ -20,6 +21,10 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
   const [editValue, setEditValue] = useState<any>('');
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [newRowData, setNewRowData] = useState<Record<string, any>>({});
+  // Состояния для модального окна
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalCell, setModalCell] = useState<EditingCell | null>(null);
+  const [modalValue, setModalValue] = useState<any>('');
   
   const primaryKey = 'id'; // Assumption: primary key is always 'id'
 
@@ -69,8 +74,18 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
 
   const handleCellClick = (rowId: any, column: string, value: any) => {
     if (column === primaryKey) return; // Don't allow editing primary key
-    setEditingCell({ rowId, column });
-    setEditValue(value);
+    
+    // Проверяем, является ли значение длинным текстом (>30 символов)
+    if (typeof value === 'string' && value.length > 30) {
+      // Открываем модальное окно для длинных текстов
+      setModalCell({ rowId, column });
+      setModalValue(value);
+      setIsModalOpen(true);
+    } else {
+      // Используем обычное редактирование для коротких текстов
+      setEditingCell({ rowId, column });
+      setEditValue(value);
+    }
   };
 
   const handleSave = async () => {
@@ -133,6 +148,33 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
     if (e.key === 'Enter') handleSave();
     if (e.key === 'Escape') setEditingCell(null);
   }
+
+  const handleModalSave = async () => {
+    if (!modalCell) return;
+    
+    try {
+      await updateRow(tableName, modalCell.rowId, modalCell.column, modalValue);
+      const newData = data.map(row => 
+        row[primaryKey] === modalCell.rowId ? { ...row, [modalCell.column]: modalValue } : row
+      );
+      setData(newData);
+      showToast('Row updated successfully!', 'success');
+    } catch (err: any) {
+      showToast(`Update failed: ${err.message}`, 'error');
+    } finally {
+      setIsModalOpen(false);
+      setModalCell(null);
+    }
+  };
+
+  // Обновляем существующую функцию handleCellClick
+
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setModalCell(null);
+    setModalValue('');
+  };
 
   const renderDisplayValue = (value: any) => {
     if (typeof value === 'string' && value.length > 50) {
@@ -239,6 +281,39 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
           </tbody>
         </table>
       </div>
+      
+      {/* Модальное окно для редактирования длинных текстов */}
+      <Modal isOpen={isModalOpen} onClose={handleModalClose} size="xl">
+        <ModalOverlay />
+        <ModalContent bg="gray.800" color="white">
+          <ModalHeader>Редактировать ячейку</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <FormControl>
+              <FormLabel>Значение</FormLabel>
+              <Textarea
+                value={modalValue}
+                onChange={(e) => setModalValue(e.target.value)}
+                placeholder="Введите текст"
+                size="lg"
+                height="300px"
+                bg="gray.700"
+                borderColor="gray.600"
+                _focus={{ borderColor: "emerald.500", boxShadow: "0 0 0 1px var(--chakra-colors-emerald-500)" }}
+              />
+            </FormControl>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button bg="gray.700" color="white" _hover={{ bg: "gray.600" }} _active={{ bg: "gray.800" }} mr={3} onClick={handleModalClose}>
+              Отмена
+            </Button>
+            <Button bg="green.600" color="white" _hover={{ bg: "green.500", transform: "scale(1.05)" }} _active={{ bg: "green.700", transform: "scale(0.98)" }} transition="all 0.2s ease-in-out" onClick={handleModalSave}>
+              Сохранить
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 };
