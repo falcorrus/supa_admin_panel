@@ -12,9 +12,10 @@ interface SettingsProps {
   visibilityMode: 'all' | 'none' | 'custom';
   toggleTableVisibility: (tableName: string) => void;
   cycleVisibilityMode: () => void;
+  tablesFetchMethod: string | null;
 }
 
-const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, customTableVisibility, visibilityMode, toggleTableVisibility, cycleVisibilityMode }) => {
+const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, customTableVisibility, visibilityMode, toggleTableVisibility, cycleVisibilityMode, tablesFetchMethod }) => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -30,6 +31,22 @@ const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, cust
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-white">Настройки</h1>
+      
+      <div className="bg-gray-800 rounded-lg p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4 text-white">Информация</h2>
+        <div className="mb-6 p-4 bg-gray-700 rounded-md">
+          <p className="text-gray-300">
+            <span className="font-semibold text-emerald-400">Способ получения таблиц:</span> {tablesFetchMethod || 'Неизвестен'}
+          </p>
+          <p className="text-sm text-gray-400 mt-2">
+            {tablesFetchMethod === 'Сервисный ключ' 
+              ? 'Используется сервисный ключ для прямого доступа к information_schema.' 
+              : tablesFetchMethod === 'RPC-функция (get_user_tables)' 
+                ? 'Используется RPC-функция get_user_tables для получения списка таблиц.' 
+                : 'Не удалось определить способ получения таблиц.'}
+          </p>
+        </div>
+      </div>
       
       <div className="bg-gray-800 rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">

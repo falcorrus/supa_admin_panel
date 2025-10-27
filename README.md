@@ -1,10 +1,9 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
 # Supabase Admin Panel
 
-This is a React-based admin panel for managing your Supabase database.
+Это админ-панель на базе React для управления моей Supabase
+
+*This is a React-based admin panel for managing your Supabase database.*
 
 ## Run Locally
 
@@ -17,8 +16,11 @@ This is a React-based admin panel for managing your Supabase database.
    ```
    VITE_SUPABASE_URL=your_supabase_project_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   VITE_SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key  # Optional: for accessing metadata without RPC function
    VITE_GEMINI_API_KEY=your_gemini_api_key
    ```
+   
+   **ВАЖНО: Использование VITE_SUPABASE_SERVICE_ROLE_KEY в клиентском приложении небезопасно и рекомендуется только для локальной разработки.**
 3. Run the app:
    `npm run dev`
 4. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
@@ -35,4 +37,4 @@ This is a React-based admin panel for managing your Supabase database.
 If you see an "invalid api" error, make sure:
 1. Your Supabase project URL and Anon Key are correctly set in environment variables
 2. The Supabase project is properly configured with required permissions
-3. The `get_user_tables` RPC function is created in your Supabase SQL Editor
+3. When using service role key, ensure it has the necessary permissions

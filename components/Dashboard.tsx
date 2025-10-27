@@ -30,6 +30,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
   const [error, setError] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
   const [sortConfigs, setSortConfigs] = useState<Record<string, SortConfig>>({});
+  const [tablesFetchMethod, setTablesFetchMethod] = useState<string | null>(null); // Для отслеживания способа получения таблиц
 
   // Загрузка настроек при запуске
   useEffect(() => {
@@ -154,8 +155,21 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     try {
       setError(null);
       setLoading(true);
+      
+      // Проверяем наличие сервисного ключа для определения способа получения
+      const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+      let methodUsed = '';
+      
+      if (serviceRoleKey) {
+        methodUsed = 'Сервисный ключ';
+      } else {
+        methodUsed = 'RPC-функция (get_user_tables)';
+      }
+      
       const data = await getTables();
       setTables(data || []);
+      setTablesFetchMethod(methodUsed); // Устанавливаем способ получения
+      
       if (data && data.length > 0) {
         // Don't set selected table here, let the useEffect handle loading from localStorage
         // Check if there's a saved selected table for this user
@@ -325,6 +339,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
               visibilityMode={visibilityMode}
               toggleTableVisibility={toggleTableVisibility}
               cycleVisibilityMode={cycleVisibilityMode}
+              tablesFetchMethod={tablesFetchMethod}
             />
           ) : selectedTable ? (
             <DataTable 
