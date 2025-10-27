@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { supabase } from '../services/supabase';
+import { getSupabaseClient } from '../services/supabase';
 import { DatabaseIcon } from './Icons';
 
 const Login: React.FC = () => {
@@ -14,6 +14,7 @@ const Login: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
+      const supabase = getSupabaseClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         throw error;

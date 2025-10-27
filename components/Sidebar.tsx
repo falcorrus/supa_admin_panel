@@ -7,7 +7,7 @@ import Spinner from './Spinner';
 interface SidebarProps {
   tables: Table[];
   selectedTable: string | null;
-  selectedView: 'tables' | 'settings' | 'settings-chakra';
+  selectedView: 'tables' | 'settings';
   onSelectTable: (tableName: string) => void;
   onSelectView: (view: 'tables' | 'settings') => void;
   isCollapsed: boolean;
@@ -162,19 +162,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 }`}
               >
                 <SettingsIcon className="w-5 h-5 mr-3 flex-shrink-0" />
-                <span>Настройки (Tailwind)</span>
+                <span>Настройки</span>
               </button>
-              <button
-                onClick={() => onSelectView('settings-chakra')}
-                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out transform hover:scale-[1.02] ${
-                  selectedView === 'settings-chakra'
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md'
-                    : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                }`}
-              >
-                <SettingsIcon className="w-5 h-5 mr-3 flex-shrink-0" />
-                <span>Настройки (Chakra UI)</span>
-              </button>
+
+
             </div>
           </>
         )}

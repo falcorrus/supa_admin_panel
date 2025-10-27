@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../services/supabase';
+import { getSupabaseClient } from '../services/supabase';
 import { LogoutIcon, UserCircleIcon, DatabaseIcon } from './Icons';
 
 interface HeaderProps {
@@ -10,6 +10,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ user }) => {
   const handleLogout = async () => {
+    const supabase = getSupabaseClient();
     await supabase.auth.signOut();
   };
 

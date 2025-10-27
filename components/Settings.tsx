@@ -1,8 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../services/supabase';
+import { getSupabaseClient } from '../services/supabase';
 import { Table } from '../types';
 import { VisibilityAllIcon, VisibilityNoneIcon, VisibilityMixedIcon } from './Icons';
+import { connectionManager } from '../services/connectionManager';
+import ConnectionList from './ConnectionList';
+import ConnectionForm from './ConnectionForm';
 
 interface SettingsProps {
   user: User | null;
@@ -16,7 +19,42 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, customTableVisibility, visibilityMode, toggleTableVisibility, cycleVisibilityMode, tablesFetchMethod }) => {
+  const [connections, setConnections] = useState(connectionManager.getConnections());
+  const [activeConnection, setActiveConnection] = useState(localStorage.getItem('activeSupabaseConnection'));
+
+  useEffect(() => {
+    const connections = connectionManager.getConnections();
+    const defaultConnection = connections.find(c => c.name === 'Default');
+    const baOnlineConnection = connections.find(c => c.name === 'BAOnline');
+
+    if (defaultConnection && !baOnlineConnection) {
+      connectionManager.removeConnection('Default');
+      connectionManager.addConnection('BAOnline', defaultConnection.url, defaultConnection.anonKey);
+      if (activeConnection === 'Default') {
+        connectionManager.setActiveConnection('BAOnline');
+        setActiveConnection('BAOnline');
+      }
+      setConnections([...connectionManager.getConnections()]);
+    }
+  }, []);
+
+  const handleAddConnection = (name: string, url: string, anonKey: string, serviceRoleKey?: string) => {
+    connectionManager.addConnection(name, url, anonKey, serviceRoleKey);
+    setConnections([...connectionManager.getConnections()]);
+  };
+
+  const handleRemoveConnection = (name: string) => {
+    connectionManager.removeConnection(name);
+    setConnections([...connectionManager.getConnections()]);
+  };
+
+  const handleSetActiveConnection = (name: string) => {
+    connectionManager.setActiveConnection(name);
+    setActiveConnection(name);
+  };
+
   const handleLogout = async () => {
+    const supabase = getSupabaseClient();
     await supabase.auth.signOut();
   };
 
@@ -32,6 +70,25 @@ const Settings: React.FC<SettingsProps> = ({ user, tables, tableVisibility, cust
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6 text-white">Настройки</h1>
       
+      <div className="bg-gray-800 rounded-lg p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4 text-white">Управление подключениями</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Добавить новое подключение</h3>
+            <ConnectionForm onAddConnection={handleAddConnection} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Существующие подключения</h3>
+            <ConnectionList
+              connections={connections}
+              activeConnection={activeConnection}
+              onSetActive={handleSetActiveConnection}
+              onRemove={handleRemoveConnection}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="bg-gray-800 rounded-lg p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4 text-white">Информация</h2>
         <div className="mb-6 p-4 bg-gray-700 rounded-md">

@@ -1,10 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
+import { connectionManager } from './connectionManager';
 import { supabaseUrl, supabaseAnonKey } from '../config';
 
-// FIX: The check for placeholder Supabase credentials was removed. The credentials in `config.ts` are already provided, making this check obsolete and causing a TypeScript error because the comparison would always be false.
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+function getSupabaseClient() {
+    try {
+        return connectionManager.getActiveConnection();
+    } catch (error) {
+        if (supabaseUrl && supabaseAnonKey && supabaseUrl !== 'MISSING_CONFIG' && supabaseAnonKey !== 'MISSING_CONFIG') {
+            return createClient(supabaseUrl, supabaseAnonKey);
+        }
+        throw new Error("Supabase credentials are not configured.");
+    }
+}
 
 export const getTables = async () => {
+  const supabase = getSupabaseClient();
   // Проверяем, запущено ли приложение на Vercel
   const isVercel = !!process.env.VERCEL;
 
@@ -77,7 +87,25 @@ export const getTables = async () => {
 
     // Если ошибка связана с отсутствием функции, предоставляем подробные инструкции
     if (error.code === '42883' || (error.message && (error.message.toLowerCase().includes('does not exist') || error.message.toLowerCase().includes('could not find function')))) {
-      throw new Error("Функция 'get_user_tables' не найдена. Пожалуйста, создайте RPC-функцию в SQL-редакторе Supabase.\n\nДля этого перейдите в SQL Editor -> New Query и выполните:\n\ncreate or replace function get_user_tables()\nreturns table (table_name text) as $$\nbegin\n  return query\n  select t.table_name::text\n  from information_schema.tables t\n  where t.table_schema = 'public'\n    and t.table_type = 'BASE TABLE'\n    and not t.table_name like 'pg_%' \n    and not t.table_name like 'sql_%'\n  order by t.table_name;\nend;\n$$ language plpgsql;");
+      throw new Error([
+        "Функция 'get_user_tables' не найдена. Пожалуйста, создайте RPC-функцию в SQL-редакторе Supabase.",
+        "",
+        "Для этого перейдите в SQL Editor -> New Query и выполните:",
+        "",
+        "create or replace function get_user_tables()",
+        "returns table (table_name text) as \$\$",
+        "begin",
+        "  return query",
+        "  select t.table_name::text",
+        "  from information_schema.tables t",
+        "  where t.table_schema = 'public'",
+        "    and t.table_type = 'BASE TABLE'",
+        "    and not t.table_name like 'pg_%'",
+        "    and not t.table_name like 'sql_%'",
+        "  order by t.table_name;",
+        "end;",
+        "\$\$ language plpgsql;"
+      ].join('\n'));
     } else {
       throw new Error(`Ошибка при получении таблиц: ${error.message}`);
     }
@@ -87,6 +115,7 @@ export const getTables = async () => {
 };
 
 export const getTableData = async (tableName: string) => {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase.from(tableName).select('*').order('id', { ascending: true }).limit(100);
   if (error) {
     console.error(`Ошибка при получении данных для таблицы ${tableName}:`, error);
@@ -96,6 +125,7 @@ export const getTableData = async (tableName: string) => {
 };
 
 export const updateRow = async (tableName: string, id: any, column: string, value: any) => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(tableName)
       .update({ [column]: value })
@@ -110,6 +140,7 @@ export const updateRow = async (tableName: string, id: any, column: string, valu
 };
 
 export const deleteRow = async (tableName: string, id: any) => {
+    const supabase = getSupabaseClient();
     const { error } = await supabase
       .from(tableName)
       .delete()
@@ -122,6 +153,7 @@ export const deleteRow = async (tableName: string, id: any) => {
 };
 
 export const insertRow = async (tableName: string, newRow: Record<string, any>) => {
+    const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from(tableName)
       .insert([newRow])
@@ -133,3 +165,5 @@ export const insertRow = async (tableName: string, newRow: Record<string, any>) 
     }
     return data;
 };
+
+export { getSupabaseClient };

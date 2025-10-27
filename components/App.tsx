@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase } from '../services/supabase';
+import { getSupabaseClient } from '../services/supabase';
 import Login from './Login';
 import Dashboard from './Dashboard';
 
@@ -9,6 +9,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const supabase = getSupabaseClient();
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
