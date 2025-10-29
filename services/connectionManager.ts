@@ -1,11 +1,17 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { supabaseUrl, supabaseAnonKey } from '../config';
+import { getSupabaseClient } from './supabaseClient';
+import { supabaseUrl } from '../config';
 
-interface Connection {
-  name: string;
-  url: string;
-  anonKey: string;
-  serviceRoleKey?: string;
+export interface Connection {
+  id: string;
+  connection_name: string;
+  db_url: string;
+  encrypted_anon_key: string;
+  encrypted_service_role_key?: string;
+  anon_key_iv?: string;
+  anon_key_auth_tag?: string;
+  service_role_key_iv?: string;
+  service_role_key_auth_tag?: string;
 }
 
 class ConnectionManager {
@@ -14,88 +20,179 @@ class ConnectionManager {
   private activeClient: SupabaseClient | null = null;
 
   constructor() {
-    if (typeof window !== 'undefined') {
-      this.loadConnections();
-      this.addDefaultConnection();
-      this.loadActiveConnection();
-    }
+    // The constructor is now empty. Loading is done on demand.
   }
 
-  private loadConnections() {
-    const connections = localStorage.getItem('supabaseConnections');
-    if (connections) {
-      this.connections = JSON.parse(connections);
+  async getConnections(): Promise<Connection[]> {
+    const supabase = getSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return [];
     }
-  }
 
-  private addDefaultConnection() {
-    if (supabaseUrl && supabaseAnonKey && supabaseUrl !== 'MISSING_CONFIG' && supabaseAnonKey !== 'MISSING_CONFIG') {
-      const defaultConnectionExists = this.connections.some(c => c.name === 'Default');
-      if (!defaultConnectionExists) {
-        this.addConnection('Default', supabaseUrl, supabaseAnonKey, '');
-      }
+    const { data: tenant } = await supabase.from('supadmin_users').select('id').eq('user_id', user.id).single();
+
+    if (!tenant) {
+      return [];
     }
-  }
 
-  private loadActiveConnection() {
-    const activeConnectionName = localStorage.getItem('activeSupabaseConnection');
-    if (activeConnectionName && this.connections.some(c => c.name === activeConnectionName)) {
-      this.setActiveConnection(activeConnectionName);
-    } else if (this.connections.length > 0) {
-      this.setActiveConnection(this.connections[0].name);
+    const { data, error } = await supabase.from('supadmin_connections').select('*').eq('tenant_id', tenant.id);
+
+    if (error) {
+      console.error('Error fetching connections:', error);
+      return [];
     }
-  }
-
-  addConnection(name: string, url: string, anonKey: string, serviceRoleKey?: string) {
-    const existingConnectionIndex = this.connections.findIndex(c => c.name === name);
-    if (existingConnectionIndex !== -1) {
-      this.connections[existingConnectionIndex] = { name, url, anonKey, serviceRoleKey };
-    } else {
-      const connection = { name, url, anonKey, serviceRoleKey };
-      this.connections.push(connection);
-    }
-    localStorage.setItem('supabaseConnections', JSON.stringify(this.connections));
-  }
-
-  removeConnection(name: string) {
-    this.connections = this.connections.filter(c => c.name !== name);
-    localStorage.setItem('supabaseConnections', JSON.stringify(this.connections));
-    if (this.activeConnectionName === name) {
-      this.activeConnectionName = null;
-      this.activeClient = null;
-      localStorage.removeItem('activeSupabaseConnection');
-    }
-  }
-
-  getConnections(): Connection[] {
+    
+    // Фильтруем подключения, которые имеют полные данные шифрования
+    const completeConnections = (data || []).filter(conn => 
+      conn.encrypted_anon_key && 
+      conn.anon_key_iv && 
+      conn.anon_key_auth_tag
+    );
+    
+    this.connections = completeConnections;
     return this.connections;
   }
 
-  getConnection(name: string): SupabaseClient {
-    const connection = this.connections.find(c => c.name === name);
-    if (!connection) {
-      throw new Error('Connection not found');
+  async addConnection(connectionName: string, dbUrl: string, anonKey: string, serviceRoleKey?: string) {
+    const supabase = getSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('User not authenticated in addConnection');
+      throw new Error('User not authenticated');
     }
-    return createClient(connection.url, connection.anonKey);
+    console.log('User authenticated:', user.id);
+
+    // First, find or create the tenant record
+    let { data: tenant } = await supabase.from('supadmin_users').select('id').eq('user_id', user.id).single();
+    console.log('Tenant found:', tenant);
+    if (!tenant) {
+        console.log('No tenant found, creating a new one...');
+        const { data, error } = await supabase.from('supadmin_users').insert({ user_id: user.id, name: user.email }).select('id').single();
+        if (error) {
+          console.error('Error creating tenant:', error);
+          throw error;
+        }
+        tenant = data;
+        console.log('New tenant created:', tenant);
+    }
+    if (!tenant) {
+      console.error('Could not create or find tenant');
+      throw new Error('Could not create or find tenant');
+    }
+
+    // Encrypt the keys using the Edge Function
+    console.log('Encrypting anonKey...');
+    const encryptedAnonKey = await this.encryptKey(anonKey);
+    console.log('Encrypted anonKey:', encryptedAnonKey);
+    const encryptedServiceRoleKey = serviceRoleKey ? await this.encryptKey(serviceRoleKey) : undefined;
+    console.log('Encrypted serviceRoleKey:', encryptedServiceRoleKey);
+
+    const { error } = await supabase.from('supadmin_connections').insert({
+      tenant_id: tenant.id,
+      connection_name: connectionName,
+      db_url: dbUrl,
+      encrypted_anon_key: encryptedAnonKey.encryptedKey,
+      encrypted_service_role_key: encryptedServiceRoleKey?.encryptedKey,
+      anon_key_iv: encryptedAnonKey.iv,
+      anon_key_auth_tag: encryptedAnonKey.authTag,
+      service_role_key_iv: encryptedServiceRoleKey?.iv,
+      service_role_key_auth_tag: encryptedServiceRoleKey?.authTag,
+    });
+
+    if (error) {
+      console.error('Error inserting connection:', error);
+      throw error;
+    }
+    console.log('Connection inserted successfully.');
   }
 
-  setActiveConnection(name: string) {
-    const connection = this.connections.find(c => c.name === name);
+  async removeConnection(connectionId: string) {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from('supadmin_connections').delete().eq('id', connectionId);
+    if (error) {
+      console.error('Error removing connection:', error);
+      throw error;
+    }
+  }
+
+  async setActiveConnection(name: string) {
+    const connection = this.connections.find(c => c.connection_name === name);
     if (!connection) {
       throw new Error('Connection not found');
     }
+
+    // Проверяем, есть ли необходимые поля для расшифровки
+    if (!connection.encrypted_anon_key || 
+        !connection.anon_key_iv || 
+        !connection.anon_key_auth_tag) {
+      throw new Error(`Connection '${name}' has missing encryption parameters and needs to be re-added to the system`);
+    }
+
+    // Decrypt the anon key using the Edge Function
+    const anonKey = await this.decryptKey(
+      connection.encrypted_anon_key,
+      connection.anon_key_iv,
+      connection.anon_key_auth_tag
+    );
+
     this.activeConnectionName = name;
-    this.activeClient = createClient(connection.url, connection.anonKey);
-    localStorage.setItem('activeSupabaseConnection', name);
+    this.activeClient = createClient(connection.db_url, anonKey);
+  }
+
+  async encryptKey(key: string): Promise<{ encryptedKey: string, iv: string, authTag: string }> {
+    const supabase = getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('User not authenticated');
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/encrypt-key`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ key }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Encryption failed');
+    }
+
+    return await response.json();
+  }
+
+  async decryptKey(encryptedKey: string, iv: string, authTag: string): Promise<string> {
+    const supabase = getSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      throw new Error('User not authenticated');
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/decrypt-key`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ encryptedKey, iv, authTag }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Decryption failed');
+    }
+
+    const { decryptedKey } = await response.json();
+    return decryptedKey;
   }
 
   getActiveConnection(): SupabaseClient {
     if (!this.activeClient) {
-      // If no active client, try to set one from the list of connections
-      if (this.connections.length > 0) {
-        this.setActiveConnection(this.connections[0].name);
-        return this.activeClient!;
-      }
       throw new Error('No active connection');
     }
     return this.activeClient;

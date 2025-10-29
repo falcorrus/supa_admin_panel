@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Table } from '../types';
 import { TableIcon, SettingsIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
@@ -164,8 +163,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <SettingsIcon className="w-5 h-5 mr-3 flex-shrink-0" />
                 <span>Настройки</span>
               </button>
-
-
             </div>
           </>
         )}

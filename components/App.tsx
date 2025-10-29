@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { getSupabaseClient } from '../services/supabase';
-import Login from './Login';
+import { getSupabaseClient } from '../services/supabaseClient';
+import { ConnectionList } from './ConnectionList';
 import Dashboard from './Dashboard';
+import { Header } from './Header';
+import Login from './Login';
+import { Settings } from './Settings';
+import { Sidebar } from './Sidebar';
+import Registration from './Registration';
+import Setup from './Setup';
+import { Routes, Route, Navigate } from 'react-router-dom';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -12,6 +19,7 @@ const App: React.FC = () => {
     const supabase = getSupabaseClient();
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('App.tsx - initial session:', session);
       setSession(session);
       setLoading(false);
     };
@@ -19,6 +27,8 @@ const App: React.FC = () => {
     getSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('App.tsx - onAuthStateChange event:', _event);
+      console.log('App.tsx - onAuthStateChange session:', session);
       setSession(session);
     });
 
@@ -35,7 +45,21 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
-      {!session ? <Login /> : <Dashboard key={session.user.id} session={session} />}
+      <Routes>
+        {session ? (
+          <>
+            <Route path="/dashboard" element={<Dashboard key={session.user.id} session={session} />} />
+            <Route path="/setup" element={<Setup />} />
+            <Route path="*" element={<Navigate to="/dashboard" />} />
+          </>
+        ) : (
+          <>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Registration />} />
+            <Route path="*" element={<Navigate to="/login" />} />
+          </>
+        )}
+      </Routes>
     </div>
   );
 };

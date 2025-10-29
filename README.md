@@ -4,11 +4,11 @@
 
 *This is a React-based admin panel for managing your Supabase database.*
 
-
-
 https://supa-admin-panel.vercel.app/
 
 
+
+project id supabase: nvodtxeehqnreyjuijsl
 
 ## Run Locally
 
@@ -24,9 +24,14 @@ https://supa-admin-panel.vercel.app/
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
    VITE_SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key  # Optional: for accessing metadata without RPC function
    VITE_GEMINI_API_KEY=your_gemini_api_key
+   ENCRYPTION_SECRET_KEY=your_32_character_encryption_secret  # Required: for encrypting database connection keys
    ```
    
-   **ВАЖНО: Использование VITE_SUPABASE_SERVICE_ROLE_KEY в клиентском приложении небезопасно и рекомендуется только для локальной разработки.**
+   **ВАЖНО:**
+   
+   - Использование VITE_SUPABASE_SERVICE_ROLE_KEY в клиентском приложении небезопасно и рекомендуется только для локальной разработки.
+   - ENCRYPTION_SECRET_KEY должен быть 32 символа длиной для AES-256 шифрования.
+   - Для генерации надежного ключа шифрования используйте: `openssl rand -base64 32`
 
 3. Run the app:
    `npm run dev`
@@ -48,16 +53,19 @@ https://supa-admin-panel.vercel.app/
 Приложение использует следующие функции Supabase:
 
 1. **Аутентификация**: 
+   
    - Вход/выход пользователей
    - Управление сессиями
 
 2. **Работа с данными**:
+   
    - Получение данных из таблиц (с лимитом 100 записей)
    - Обновление отдельных ячеек
    - Удаление строк
    - Добавление новых строк
 
 3. **Доступ к метаданным**:
+   
    - В production: через безопасный API маршрут (на сервере Vercel)
    - В разработке: 
      - Прямой доступ (с использованием service_role_key, небезопасный метод)

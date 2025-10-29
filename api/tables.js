@@ -20,17 +20,14 @@ export default async function handler(req, res) {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    const { data, error } = await supabase
-      .from('information_schema.tables')
-      .select('table_name')
-      .eq('table_schema', 'public')
-      .eq('table_type', 'BASE TABLE')
-      .order('table_name');
+    // Try using the RPC function first (recommended secure method)
+    let { data, error } = await supabase.rpc('get_user_tables');
     
     if (error) {
-      console.error('Ошибка при запросе к information_schema:', error);
+      console.error('Ошибка при запросе через RPC функцию get_user_tables:', error);
+      // If RPC fails because function doesn't exist, return an error to indicate the function needs to be created
       return res.status(500).json({ 
-        error: 'Failed to fetch tables' 
+        error: 'RPC функция get_user_tables не найдена. Пожалуйста, создайте функцию в базе данных согласно документации.' 
       });
     }
 

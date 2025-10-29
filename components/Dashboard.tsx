@@ -1,23 +1,21 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Session } from '@supabase/supabase-js';
 import { getTables } from '../services/supabase';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import DataTable from './DataTable';
 import Settings from './Settings';
-
-
 import { Table, SortConfig } from '../types';
 import Spinner from './Spinner';
 import Toast from './Toast';
 import { useToast } from '../hooks/useToast';
+import { connectionManager, Connection } from '../services/connectionManager';
 
 interface DashboardProps {
   session: Session;
 }
 
-// Префикс для ключа
 const TABLE_VISIBILITY_STORAGE_KEY_PREFIX = 'supabaseAdminTableVisibility';
 
 const Dashboard: React.FC<DashboardProps> = ({ session }) => {
@@ -32,39 +30,52 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
   const [error, setError] = useState<string | null>(null);
   const { toast, showToast, hideToast } = useToast();
   const [sortConfigs, setSortConfigs] = useState<Record<string, SortConfig>>({});
-  const [tablesFetchMethod, setTablesFetchMethod] = useState<string | null>(null); // Для отслеживания способа получения таблиц
-  const [activeConnection, setActiveConnection] = useState(localStorage.getItem('activeSupabaseConnection'));
+  const [tablesFetchMethod, setTablesFetchMethod] = useState<string | null>(null);
+  const [userConnections, setUserConnections] = useState<Connection[]>([]);
+  const [activeConnectionName, setActiveConnectionName] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const handleStorageChange = () => {
-      setActiveConnection(localStorage.getItem('activeSupabaseConnection'));
+    const loadConnectionsAndSetInitial = async () => {
+      setLoading(true);
+      try {
+        const connections = await connectionManager.getConnections();
+        setUserConnections(connections);
+
+        if (connections.length === 0) {
+          navigate('/setup');
+          return;
+        }
+
+        const lastActiveKey = `supabaseAdminLastActiveConnection_${session.user.id}`;
+        const savedActiveConnectionName = localStorage.getItem(lastActiveKey);
+        let connectionToActivate = connections[0].connection_name;
+
+        if (savedActiveConnectionName && connections.some(c => c.connection_name === savedActiveConnectionName)) {
+          connectionToActivate = savedActiveConnectionName;
+        }
+
+        await connectionManager.setActiveConnection(connectionToActivate);
+        setActiveConnectionName(connectionToActivate);
+        fetchTables();
+
+      } catch (err: any) {
+        setError(err.message || 'Failed to load connections.');
+      } finally {
+        setLoading(false);
+      }
     };
+    loadConnectionsAndSetInitial();
+  }, [session.user.id, navigate]);
 
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (activeConnection) {
-      fetchTables();
-    }
-  }, [activeConnection]);
-
-  // Загрузка настроек при запуске
   useEffect(() => {
     const visibilityKey = `${TABLE_VISIBILITY_STORAGE_KEY_PREFIX}_${session.user.id}`;
     const savedVisibility = localStorage.getItem(visibilityKey);
-    console.log('Loading table visibility from localStorage with key:', visibilityKey, savedVisibility);
-    
     if (savedVisibility) {
       try {
         const parsedVisibility: Record<string, boolean> = JSON.parse(savedVisibility);
         setTableVisibility(parsedVisibility);
         
-        // Check if it's a custom selection by checking if it's neither all true nor all false
         const values = Object.values(parsedVisibility);
         const allTrue = values.every(v => v === true);
         const allFalse = values.every(v => v === false);
@@ -74,13 +85,11 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         } else if (allFalse) {
           setVisibilityMode('none');
         } else {
-          // This is a custom selection
           setVisibilityMode('custom');
           setCustomTableVisibility(parsedVisibility);
         }
       } catch (e) {
         console.error('Error parsing table visibility from localStorage', e);
-        // If parsing fails, initialize all tables as visible
         const initialVisibility: Record<string, boolean> = {};
         tables.forEach(table => {
           initialVisibility[table.table_name] = true;
@@ -89,7 +98,6 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         setVisibilityMode('all');
       }
     } else {
-        // If no saved visibility, default to all visible
         const initialVisibility: Record<string, boolean> = {};
         tables.forEach(table => {
           initialVisibility[table.table_name] = true;
@@ -97,78 +105,71 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         setTableVisibility(initialVisibility);
         setVisibilityMode('all');
     }
-  }, [session.user.id]);
+  }, [session.user.id, tables]);
 
-  // Update table visibility when tables list changes (to add new tables as visible)
   useEffect(() => {
     if (tables.length > 0) {
-      const visibilityKey = `${TABLE_VISIBILITY_STORAGE_KEY_PREFIX}_${session.user.id}`;
-      const savedVisibility = localStorage.getItem(visibilityKey);
-      
       setTableVisibility(prev => {
         const newVisibility = { ...prev };
-        
-        // Add any new tables that weren't in the previous state
+        let changed = false;
+
         tables.forEach(table => {
           if (!(table.table_name in newVisibility)) {
-            // For new tables, use the current state if we have custom selection, else default to visible
-            newVisibility[table.table_name] = customTableVisibility ? true : true; // Default to visible
+            newVisibility[table.table_name] = true;
+            changed = true;
           }
         });
-        
-        // Remove any tables that no longer exist
+
         Object.keys(newVisibility).forEach(tableName => {
           if (!tables.some(table => table.table_name === tableName)) {
             delete newVisibility[tableName];
+            changed = true;
           }
         });
-        
-        return newVisibility;
+
+        return changed ? newVisibility : prev;
       });
-      
-      // Also update customTableVisibility if needed
+
       if (customTableVisibility) {
         setCustomTableVisibility(prev => {
           if (!prev) return null;
-          
+
           const newCustomVisibility = { ...prev };
-          
-          // Add any new tables to custom selection
+          let changed = false;
+
           tables.forEach(table => {
             if (!(table.table_name in newCustomVisibility)) {
-              newCustomVisibility[table.table_name] = true; // New tables default to visible in custom selection
+              newCustomVisibility[table.table_name] = true;
+              changed = true;
             }
           });
-          
-          // Remove any tables that no longer exist
+
           Object.keys(newCustomVisibility).forEach(tableName => {
             if (!tables.some(table => table.table_name === tableName)) {
               delete newCustomVisibility[tableName];
+              changed = true;
             }
           });
-          
-          return newCustomVisibility;
+
+          return changed ? newCustomVisibility : prev;
         });
       }
     }
-  }, [tables, session.user.id, customTableVisibility]);
+  }, [tables, session.user.id]); // Removed customTableVisibility from dependencies to break the cycle
 
-  // Сохранение изменений
   useEffect(() => {
     if (Object.keys(tableVisibility).length > 0) {
       const visibilityKey = `${TABLE_VISIBILITY_STORAGE_KEY_PREFIX}_${session.user.id}`;
-      console.log('Saving table visibility to localStorage with key:', visibilityKey, tableVisibility);
       localStorage.setItem(visibilityKey, JSON.stringify(tableVisibility));
     }
-  }, [tableVisibility, session.user.id]); // Срабатывает при изменении видимости
+  }, [tableVisibility, session.user.id]);
   
-  // Save selected table to localStorage when it changes
   useEffect(() => {
     const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
     if (selectedTable) {
       localStorage.setItem(selectedTableKey, selectedTable);
     } else {
-      localStorage.removeItem(selectedTableKey); // Remove if no table is selected
+      localStorage.removeItem(selectedTableKey);
     }
   }, [selectedTable, session.user.id]);
 
@@ -177,51 +178,59 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       setError(null);
       setLoading(true);
       
-      // Проверяем наличие сервисного ключа для определения способа получения
-      const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-      let methodUsed = '';
+      // Set the method being used - since we're using the RPC function, set it to that
+      setTablesFetchMethod('RPC-функция (get_user_tables)');
       
-      if (serviceRoleKey) {
-        methodUsed = 'Сервисный ключ';
-      } else {
-        methodUsed = 'RPC-функция (get_user_tables)';
-      }
+      // Add a small delay to ensure connection change has been processed
+      await new Promise(resolve => setTimeout(resolve, 100));
       
+      // Now getTables should use the active connection
       const data = await getTables();
       setTables(data || []);
-      setTablesFetchMethod(methodUsed); // Устанавливаем способ получения
       
+      if (!data || data.length === 0) {
+        // This case should ideally be handled by the connection management useEffect
+        // but keeping it here as a fallback or for when connections are removed
+        navigate('/setup');
+        return;
+      }
+
       if (data && data.length > 0) {
-        // Don't set selected table here, let the useEffect handle loading from localStorage
-        // Check if there's a saved selected table for this user
         const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
         const savedSelectedTable = localStorage.getItem(selectedTableKey);
         
-        if (savedSelectedTable && data.some(table => table.table_name === savedSelectedTable)) {
-          // Use the saved table if it exists in the current data
-          if (selectedTable !== savedSelectedTable) {
+        // Check if the currently selected table exists in the new data
+        const currentTableExists = selectedTable && data.some(table => table.table_name === selectedTable);
+        const savedTableExists = savedSelectedTable && data.some(table => table.table_name === savedSelectedTable);
+        
+        // If current selected table doesn't exist in the new connection
+        if (!currentTableExists) {
+          // First try to restore the saved selected table if it exists in the new connection
+          if (savedTableExists) {
             setSelectedTable(savedSelectedTable);
-          }
-        } else {
-          // If no saved table or it doesn't exist anymore, select the first one if no table is currently selected
-          if (!selectedTable) {
+          } else {
+            // Otherwise, select the first table of the new connection
             setSelectedTable(data[0].table_name);
           }
+        } else if (selectedTable !== savedSelectedTable && savedTableExists) {
+          // If current table exists but is different from saved table, update if saved exists
+          setSelectedTable(savedSelectedTable);
         }
       } else {
         setSelectedTable(null);
       }
     } catch (err: any) {
         setError(err.message || 'Произошла неизвестная ошибка при получении таблиц.');
+        // In case of an error, we might also clear the method info
+        setTablesFetchMethod(null);
     } finally {
       setLoading(false);
     }
-  }, [selectedTable, session.user.id]);
+  }, [selectedTable, session.user.id, navigate]);
 
   useEffect(() => {
     fetchTables();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchTables]);
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -231,30 +240,25 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     setTableVisibility(prev => {
       const newVisibility = {
         ...prev,
-        [tableName]: !prev[tableName] // Toggle the visibility state
+        [tableName]: !prev[tableName]
       };
       return newVisibility;
     });
     
-    // When a single table is toggled, we're now in custom mode
     setVisibilityMode('custom');
     
-    // Save the custom visibility state
     setCustomTableVisibility(prev => {
       if (!prev) {
-        // If no previous custom state, create one based on current state
         return { ...tableVisibility, [tableName]: !tableVisibility[tableName] };
       }
       return {
         ...prev,
-        [tableName]: !prev[tableName] // Toggle the visibility state
+        [tableName]: !prev[tableName]
       };
     });
   };
 
-  // Enhanced function to cycle through all visibility modes
   const toggleAllTables = (show: boolean) => {
-    // Save the current state as custom selection if we're in custom mode
     if (visibilityMode === 'custom' && !customTableVisibility) {
       setCustomTableVisibility({ ...tableVisibility });
     }
@@ -267,27 +271,20 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       return newVisibility;
     });
     
-    // Update the visibility mode
     setVisibilityMode(show ? 'all' : 'none');
   };
   
-  // Function to specifically handle cycling through the three states
   const cycleVisibilityMode = () => {
     if (visibilityMode === 'all') {
-      // Go from all to none
-      toggleAllTables(false); // Hide all
+      toggleAllTables(false);
     } else if (visibilityMode === 'none') {
-      // Go from none to custom (if we have a custom state saved) otherwise to all
       if (customTableVisibility && Object.keys(customTableVisibility).length > 0) {
-        // If we have custom visibility saved, restore it
         setTableVisibility(customTableVisibility);
         setVisibilityMode('custom');
       } else {
-        // If no custom visibility saved, go to all
         toggleAllTables(true);
       }
     } else { // custom
-      // Go from custom to all
       toggleAllTables(true);
     }
   };
@@ -299,9 +296,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     }));
   };
 
-  // Filter and order tables for the sidebar
   const visibleTables = useMemo(() => {
-    // Get saved table order from localStorage
     const savedOrder = localStorage.getItem('tableOrder');
     let orderMap: { [key: string]: number } = {};
     if (savedOrder) {
@@ -312,11 +307,37 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       }
     }
     
-    // Filter out hidden tables and sort by saved order
     return tables
-      .filter(table => tableVisibility[table.table_name] !== false) // Only show tables that are not explicitly set to false
+      .filter(table => tableVisibility[table.table_name] !== false)
       .sort((a, b) => (orderMap[a.table_name] || Infinity) - (orderMap[b.table_name] || Infinity));
   }, [tables, tableVisibility]);
+
+  const handleSetActiveConnection = useCallback(async (name: string) => {
+    try {
+      // Re-fetch connections to ensure the connection list is current
+      const currentConnections = await connectionManager.getConnections();
+      setUserConnections(currentConnections);
+      
+      // Verify that the connection exists before setting it as active
+      const connectionExists = currentConnections.some(conn => conn.connection_name === name);
+      if (!connectionExists) {
+        throw new Error(`Connection ${name} not found in the connection list`);
+      }
+      
+      await connectionManager.setActiveConnection(name);
+      setActiveConnectionName(name);
+      const lastActiveKey = `supabaseAdminLastActiveConnection_${session.user.id}`;
+      localStorage.setItem(lastActiveKey, name);
+      
+      // Clear the currently selected table to ensure proper refresh
+      setSelectedTable(null);
+      
+      // Force re-fetch tables for the new active connection
+      await fetchTables();
+    } catch (err: any) {
+      showToast('error', err.message || 'Failed to set active connection.');
+    }
+  }, [session.user.id, fetchTables, showToast, setUserConnections]);
 
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100">
@@ -330,11 +351,14 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         isCollapsed={isSidebarCollapsed}
         toggleSidebar={toggleSidebar}
         loading={loading}
+        userConnections={userConnections}
+        activeConnectionName={activeConnectionName}
+        onSetActiveConnection={handleSetActiveConnection}
       />
       <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'ml-0' : 'ml-0'}`}>
         <Header user={session.user} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-800 p-4 sm:p-6">
-          {error ? (
+          {error && error !== 'No active connection' ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-gray-700 p-8 rounded-lg shadow-xl">
                 <h2 className="text-xl font-semibold text-red-400 mb-4">Произошла ошибка</h2>
@@ -347,7 +371,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
                 </button>
               </div>
             </div>
-          ) : loading ? (
+          ) : loading || error === 'No active connection' ? (
              <div className="flex items-center justify-center h-full">
                 <Spinner />
              </div>
@@ -361,9 +385,8 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
               toggleTableVisibility={toggleTableVisibility}
               cycleVisibilityMode={cycleVisibilityMode}
               tablesFetchMethod={tablesFetchMethod}
+              onSetActiveConnection={handleSetActiveConnection}
             />
-
-
           ) : selectedTable ? (
             <DataTable 
               key={selectedTable} 
@@ -372,6 +395,10 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
               sortConfig={sortConfigs[selectedTable] || null}
               onSortChange={(config) => handleSortChange(selectedTable, config)}
             />
+          ) : tables.length > 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <Spinner />
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">

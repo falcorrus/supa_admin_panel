@@ -1,30 +1,49 @@
-
 import React, { useState } from 'react';
 import { getSupabaseClient } from '../services/supabaseClient';
+import { useNavigate, Link } from 'react-router-dom';
 import { DatabaseIcon } from './Icons';
-import { Link } from 'react-router-dom';
 
-const Login: React.FC = () => {
+const Registration = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    setLoading(true);
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      setLoading(false);
+      return;
+    }
+
+    const supabase = getSupabaseClient();
     try {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      console.log('signInWithPassword data:', data);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
       if (error) {
-        throw error;
+        setError(error.message);
+      } else if (data.user) {
+        const { error: insertError } = await getSupabaseClient()
+          .from('supadmin_users')
+          .insert([{ user_id: data.user.id, name: data.user.email }]);
+        if (insertError) {
+          setError(insertError.message);
+        } else {
+          navigate('/setup');
+        }
+      } else {
+        setError('Registration failed: No user data returned.');
       }
     } catch (error: any) {
-      setError(error.message || 'An unknown error occurred.');
-    } finally {
-      setLoading(false);
+      setError(error.message);
     }
   };
 
@@ -36,8 +55,8 @@ const Login: React.FC = () => {
                 <h1 className="ml-3 text-3xl font-bold text-gray-100">Supabase Admin</h1>
             </div>
             <div className="bg-gray-800 shadow-lg rounded-lg p-8">
-                <h2 className="text-2xl font-semibold text-center text-gray-200 mb-6">Sign in to your account</h2>
-                <form onSubmit={handleLogin}>
+                <h2 className="text-2xl font-semibold text-center text-gray-200 mb-6">Register for an account</h2>
+                <form onSubmit={handleRegister}>
                     <div className="mb-4">
                         <label className="block text-gray-400 text-sm font-bold mb-2" htmlFor="email">
                             Email
@@ -66,6 +85,20 @@ const Login: React.FC = () => {
                             required
                         />
                     </div>
+                    <div className="mb-6">
+                        <label className="block text-gray-400 text-sm font-bold mb-2" htmlFor="confirm-password">
+                            Confirm Password
+                        </label>
+                        <input
+                            id="confirm-password"
+                            className="shadow appearance-none border border-gray-700 rounded w-full py-3 px-4 bg-gray-700 text-gray-200 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="••••••••••••"
+                            required
+                        />
+                    </div>
                      {error && <p className="text-red-400 text-xs italic mb-4">{error}</p>}
                     <div className="flex items-center justify-between">
                         <button
@@ -73,20 +106,17 @@ const Login: React.FC = () => {
                             type="submit"
                             disabled={loading}
                         >
-                            {loading ? 'Signing in...' : 'Sign In'}
+                            {loading ? 'Registering...' : 'Register'}
                         </button>
                     </div>
                 </form>
             </div>
             <p className="text-center text-gray-500 text-xs mt-4">
-              Don't have an account? <Link to="/register" className="text-emerald-400 hover:text-emerald-300">Register here</Link>.
-            </p>
-            <p className="text-center text-gray-500 text-xs mt-2">
-              Please enter your Supabase user credentials.
+              Already have an account? <Link to="/login" className="text-emerald-400 hover:text-emerald-300">Login here</Link>.
             </p>
         </div>
     </div>
   );
 };
 
-export default Login;
+export default Registration;

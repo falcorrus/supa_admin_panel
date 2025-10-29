@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { User } from '@supabase/supabase-js';
-import { getSupabaseClient } from '../services/supabase';
+import { getSupabaseClient } from '../services/supabaseClient';
 import { LogoutIcon, UserCircleIcon, DatabaseIcon } from './Icons';
 
 interface HeaderProps {

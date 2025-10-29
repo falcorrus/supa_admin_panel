@@ -272,7 +272,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
                   </td>
                 ))}
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button onClick={() => handleDelete(row[primaryKey])} className="text-red-500 hover:text-red-400">
+                  <button onClick={() => handleDelete(row[primaryKey])} className="flex items-center bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded transition-colors">
                     <TrashIcon className="w-5 h-5"/>
                   </button>
                 </td>

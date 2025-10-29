@@ -8,6 +8,13 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        proxy: {
+          '/functions/v1': {
+            target: 'https://nvodtxeehqnreyjuijsl.supabase.co',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/functions\/v1/, ''),
+          },
+        },
       },
       plugins: [react()],
       define: {
