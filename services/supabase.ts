@@ -17,8 +17,30 @@ export const getTables = async () => {
 };
 
 export const getTableData = async (tableName: string) => {
-  const activeSupabase = connectionManager.getActiveConnection();
-  const { data, error } = await activeSupabase.from(tableName).select('*').order('id', { ascending: true }).limit(100);
+  let supabaseClient = connectionManager.getActiveConnection();
+  let data, error;
+
+  // First attempt: Try with service role client if available and for supadmin_users
+  if (tableName === 'supadmin_users') {
+    const serviceRoleClient = connectionManager.getActiveServiceRoleConnection();
+    if (serviceRoleClient) {
+      ({ data, error } = await serviceRoleClient.from(tableName).select('*').order('id', { ascending: true }).limit(100));
+      if (!error) {
+        return data; // Successfully fetched with service role client
+      } else if (error.message.includes('Invalid API key')) {
+        console.warn('Service role client failed with Invalid API key. Falling back to active connection.');
+        // Fall through to use activeClient
+      } else {
+        console.error(`Ошибка при получении данных для таблицы ${tableName} с serviceRoleClient:`, error);
+        throw error; // Other errors with service role client
+      }
+    } else {
+      console.warn('Service role client not available for supadmin_users. Falling back to active connection.');
+    }
+  }
+
+  // Second attempt: Use the active client (anonKey)
+  ({ data, error } = await supabaseClient.from(tableName).select('*').order('id', { ascending: true }).limit(100));
   if (error) {
     console.error(`Ошибка при получении данных для таблицы ${tableName}:`, error);
     throw error;

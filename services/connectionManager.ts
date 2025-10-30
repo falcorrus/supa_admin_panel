@@ -18,6 +18,7 @@ class ConnectionManager {
   private connections: Connection[] = [];
   private activeConnectionName: string | null = null;
   private activeClient: SupabaseClient | null = null;
+  private activeServiceRoleClient: SupabaseClient | null = null;
 
   constructor() {
     // The constructor is now empty. Loading is done on demand.
@@ -138,6 +139,18 @@ class ConnectionManager {
 
     this.activeConnectionName = name;
     this.activeClient = createClient(connection.db_url, anonKey);
+
+    // NEW: Decrypt and set service role key if available
+    if (connection.encrypted_service_role_key && connection.service_role_key_iv && connection.service_role_key_auth_tag) {
+      const serviceRoleKey = await this.decryptKey(
+        connection.encrypted_service_role_key,
+        connection.service_role_key_iv,
+        connection.service_role_key_auth_tag
+      );
+      this.activeServiceRoleClient = createClient(connection.db_url, serviceRoleKey);
+    } else {
+      this.activeServiceRoleClient = null;
+    }
   }
 
   async encryptKey(key: string): Promise<{ encryptedKey: string, iv: string, authTag: string }> {
@@ -196,6 +209,11 @@ class ConnectionManager {
       throw new Error('No active connection');
     }
     return this.activeClient;
+  }
+
+  // NEW METHOD
+  getActiveServiceRoleConnection(): SupabaseClient | null {
+    return this.activeServiceRoleClient;
   }
 }
 

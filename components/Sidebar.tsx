@@ -11,23 +11,21 @@ interface SidebarProps {
   onSelectView: (view: 'tables' | 'settings') => void;
   isCollapsed: boolean;
   toggleSidebar: () => void;
-  loading: boolean;
-}
-
-const Sidebar: React.FC<SidebarProps> = ({ 
-  tables, 
-  selectedTable, 
-  selectedView, 
-  onSelectTable, 
-  onSelectView, 
-  isCollapsed,
-  toggleSidebar,
-  loading 
-}) => {
-  // Load table order from localStorage
-  const [orderedTables, setOrderedTables] = useState<Table[]>(tables);
-  
-  useEffect(() => {
+      onSetActiveConnection: (name: string) => Promise<void>;
+    }
+    
+    const Sidebar: React.FC<SidebarProps> = ({ 
+      tables, 
+      selectedTable, 
+      selectedView, 
+      onSelectTable, 
+      onSelectView, 
+      isCollapsed,
+      toggleSidebar,
+      loading 
+    }) => {
+      // Load table order from localStorage
+      const [orderedTables, setOrderedTables] = useState<Table[]>(tables);  useEffect(() => {
     // Load table order from localStorage on initial render
     const savedOrder = localStorage.getItem('tableOrder');
     if (savedOrder && tables.length > 0) {

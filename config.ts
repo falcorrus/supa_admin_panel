@@ -7,28 +7,16 @@
 // - VITE_SUPABASE_ANON_KEY: Your Supabase anon key
 // =================================================================================
 
-let supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-let supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl: string = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey: string = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Development fallback - DO NOT use in production, only for local testing
-if (process.env.NODE_ENV !== 'production') {
-  if (!supabaseUrl) {
-    console.warn('VITE_SUPABASE_URL is not set. Using fallback value.');
-    // Не используем жёстко заданные значения, это только для отладки
-  }
-  if (!supabaseAnonKey) {
-    console.warn('VITE_SUPABASE_ANON_KEY is not set. Using fallback value.');
-  }
-}
+console.log('VITE_SUPABASE_ANON_KEY from config.ts:', supabaseAnonKey);
 
-// Check if environment variables are properly set
 if (!supabaseUrl) {
-  console.error('FATAL ERROR: VITE_SUPABASE_URL is not set. Please configure your environment variables.');
-  supabaseUrl = 'MISSING_CONFIG';
+  throw new Error('FATAL ERROR: VITE_SUPABASE_URL is not set. Please configure your environment variables.');
 }
 if (!supabaseAnonKey) {
-  console.error('FATAL ERROR: VITE_SUPABASE_ANON_KEY is not set. Please configure your environment variables.');
-  supabaseAnonKey = 'MISSING_CONFIG';
+  throw new Error('FATAL ERROR: VITE_SUPABASE_ANON_KEY is not set. Please configure your environment variables.');
 }
 
 export { supabaseUrl, supabaseAnonKey };
