@@ -4,16 +4,27 @@ import { connectionManager } from './connectionManager';
 
 export const getTables = async () => {
   const activeSupabase = connectionManager.getActiveConnection();
-  
+
   // Try to fetch tables using the RPC function (recommended secure method)
-  const { data, error } = await activeSupabase.rpc('get_user_tables');
-  
+  // First try the new standard function name
+  let { data, error } = await activeSupabase.rpc('get_public_tables');
+
+  // If that fails, try the legacy function name
   if (error) {
-    console.error('Error using RPC function get_user_tables:', error);
-    throw new Error(`Ошибка при получении таблиц через RPC функцию: ${error.message}. Пожалуйста, убедитесь что функция get_user_tables создана в базе данных согласно документации.`);
+    // console.log('get_public_tables failed, trying get_user_tables');
+    const legacyResult = await activeSupabase.rpc('get_user_tables');
+    if (!legacyResult.error) {
+      data = legacyResult.data;
+      error = null;
+    } else {
+      // If both fail, return the error from the first attempt (or a combined error)
+      console.error('Error using RPC function get_public_tables:', error);
+      console.error('Error using RPC function get_user_tables:', legacyResult.error);
+      throw new Error(`Ошибка при получении таблиц. Не удалось вызвать RPC функцию get_public_tables или get_user_tables. Пожалуйста, выполните SQL инструкцию из раздела подключения.`);
+    }
   }
-  
-  return data.map(item => ({ table_name: item.table_name }));
+
+  return data.map((item: any) => ({ table_name: item.table_name }));
 };
 
 export const getTableData = async (tableName: string) => {
@@ -49,43 +60,43 @@ export const getTableData = async (tableName: string) => {
 };
 
 export const updateRow = async (tableName: string, id: any, column: string, value: any) => {
-    const activeSupabase = connectionManager.getActiveConnection();
-    const { data, error } = await activeSupabase
-      .from(tableName)
-      .update({ [column]: value })
-      .eq('id', id)
-      .select();
-  
-    if (error) {
-      console.error(`Ошибка при обновлении строки в ${tableName}:`, error);
-      throw error;
-    }
-    return data;
+  const activeSupabase = connectionManager.getActiveConnection();
+  const { data, error } = await activeSupabase
+    .from(tableName)
+    .update({ [column]: value })
+    .eq('id', id)
+    .select();
+
+  if (error) {
+    console.error(`Ошибка при обновлении строки в ${tableName}:`, error);
+    throw error;
+  }
+  return data;
 };
 
 export const deleteRow = async (tableName: string, id: any) => {
-    const activeSupabase = connectionManager.getActiveConnection();
-    const { error } = await activeSupabase
-      .from(tableName)
-      .delete()
-      .eq('id', id);
+  const activeSupabase = connectionManager.getActiveConnection();
+  const { error } = await activeSupabase
+    .from(tableName)
+    .delete()
+    .eq('id', id);
 
-    if (error) {
-        console.error(`Ошибка при удалении строки из ${tableName}:`, error);
-        throw error;
-    }
+  if (error) {
+    console.error(`Ошибка при удалении строки из ${tableName}:`, error);
+    throw error;
+  }
 };
 
 export const insertRow = async (tableName: string, newRow: Record<string, any>) => {
-    const activeSupabase = connectionManager.getActiveConnection();
-    const { data, error } = await activeSupabase
-      .from(tableName)
-      .insert([newRow])
-      .select();
-      
-    if (error) {
-        console.error(`Ошибка при вставке строки в ${tableName}:`, error);
-        throw error;
-    }
-    return data;
+  const activeSupabase = connectionManager.getActiveConnection();
+  const { data, error } = await activeSupabase
+    .from(tableName)
+    .insert([newRow])
+    .select();
+
+  if (error) {
+    console.error(`Ошибка при вставке строки в ${tableName}:`, error);
+    throw error;
+  }
+  return data;
 };

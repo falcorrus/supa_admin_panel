@@ -11,21 +11,24 @@ interface SidebarProps {
   onSelectView: (view: 'tables' | 'settings') => void;
   isCollapsed: boolean;
   toggleSidebar: () => void;
-      onSetActiveConnection: (name: string) => Promise<void>;
-    }
-    
-    const Sidebar: React.FC<SidebarProps> = ({ 
-      tables, 
-      selectedTable, 
-      selectedView, 
-      onSelectTable, 
-      onSelectView, 
-      isCollapsed,
-      toggleSidebar,
-      loading 
-    }) => {
-      // Load table order from localStorage
-      const [orderedTables, setOrderedTables] = useState<Table[]>(tables);  useEffect(() => {
+  loading: boolean;
+  userConnections: any[];
+  activeConnectionName: string | null;
+  onSetActiveConnection: (name: string) => Promise<void>;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({
+  tables,
+  selectedTable,
+  selectedView,
+  onSelectTable,
+  onSelectView,
+  isCollapsed,
+  toggleSidebar,
+  loading
+}) => {
+  // Load table order from localStorage
+  const [orderedTables, setOrderedTables] = useState<Table[]>(tables); useEffect(() => {
     // Load table order from localStorage on initial render
     const savedOrder = localStorage.getItem('tableOrder');
     if (savedOrder && tables.length > 0) {
@@ -62,20 +65,20 @@ interface SidebarProps {
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     e.currentTarget.classList.remove('opacity-50');
-    
+
     const dragIndex = parseInt(e.dataTransfer.getData('text/plain'));
-    
+
     if (dragIndex !== dropIndex) {
       const newOrderedTables = [...orderedTables];
       const draggedTable = newOrderedTables[dragIndex];
-      
+
       // Remove the dragged item
       newOrderedTables.splice(dragIndex, 1);
       // Insert it at the new position
       newOrderedTables.splice(dropIndex, 0, draggedTable);
-      
+
       setOrderedTables(newOrderedTables);
-      
+
       // Save new order to localStorage
       const orderMap: { [key: string]: number } = {};
       newOrderedTables.forEach((table, index) => {
@@ -137,11 +140,10 @@ interface SidebarProps {
                       onSelectTable(table.table_name);
                       onSelectView('tables');
                     }}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out transform hover:scale-[1.02] ${
-                      selectedTable === table.table_name && selectedView === 'tables'
+                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out transform hover:scale-[1.02] ${selectedTable === table.table_name && selectedView === 'tables'
                         ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
                         : 'text-white hover:bg-gray-700/50'
-                    }`}
+                      }`}
                   >
                     <TableIcon className="w-5 h-5 mr-3 flex-shrink-0" />
                     <span className="truncate">{table.table_name}</span>
@@ -152,11 +154,10 @@ interface SidebarProps {
             <div className="pt-4 mt-auto border-t border-gray-700/50 space-y-2">
               <button
                 onClick={() => onSelectView('settings')}
-                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out transform hover:scale-[1.02] ${
-                  selectedView === 'settings'
+                className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out transform hover:scale-[1.02] ${selectedView === 'settings'
                     ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md'
                     : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                }`}
+                  }`}
               >
                 <SettingsIcon className="w-5 h-5 mr-3 flex-shrink-0" />
                 <span>Настройки</span>

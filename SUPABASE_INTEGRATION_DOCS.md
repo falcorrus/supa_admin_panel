@@ -98,19 +98,21 @@ await supabase.auth.signOut();
    - Требует предварительного создания функции в базе данных
 
 ```sql
-create or replace function get_user_tables()
-returns table (table_name text) as $$
+create or replace function get_public_tables()
+returns table (table_name text)
+language plpgsql
+as $
 begin
   return query
   select t.table_name::text
   from information_schema.tables t
   where t.table_schema = 'public'
     and t.table_type = 'BASE TABLE'
-    and not t.table_name like 'pg_%' 
-    and not t.table_name like 'sql_%'
-  order by t.table_name;
+    and t.table_name != 'supabase_migrations'
+    and t.table_name not like '_basejump%'
+    and t.table_name not like 'pg_%';
 end;
-$$ language plpgsql;
+$
 ```
 
 ### Получение данных таблицы

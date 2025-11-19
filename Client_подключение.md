@@ -12,21 +12,30 @@
 4. Создайте новый запрос или используйте существующий терминал
 5. Выполните следующий SQL-код:
 
+> **⚠️ ВАЖНО:** Обратите внимание на использование **двух знаков доллара** `$$` (а не одного `$`) в начале и конце тела функции. Это обязательный синтаксис PostgreSQL для "dollar quoting".
+
 ```sql
-create or replace function get_user_tables()
-returns table (table_name text) as $$
-begin
-  return query
-  select t.table_name::text
-  from information_schema.tables t
-  where t.table_schema = 'public'
-    and t.table_type = 'BASE TABLE'
-    and not t.table_name like 'pg_%'
-    and not t.table_name like 'sql_%'
-  order by t.table_name;
-end;
-$$ language plpgsql;
+CREATE OR REPLACE FUNCTION get_user_tables()
+RETURNS TABLE (table_name text) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT t.table_name::text
+  FROM information_schema.tables t
+  WHERE t.table_schema = 'public'
+    AND t.table_type = 'BASE TABLE'
+    AND NOT t.table_name LIKE 'pg_%'
+    AND NOT t.table_name LIKE 'sql_%'
+  ORDER BY t.table_name;
+END;
+$$;
 ```
+
+**Пояснение синтаксиса:**
+- `AS $$` - открывает тело функции (ДВА знака доллара!)
+- `$$;` - закрывает тело функции (ДВА знака доллара!)
+- Если использовать один знак `$`, PostgreSQL выдаст синтаксическую ошибку
 
 ### Назначение функции:
 

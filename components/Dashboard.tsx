@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { FaCopy, FaCheck } from 'react-icons/fa';
+import { GET_TABLES_SQL } from '../constants';
 import { useNavigate } from 'react-router-dom';
 import { Session } from '@supabase/supabase-js';
 import { getTables } from '../services/supabase';
@@ -33,7 +35,14 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
   const [tablesFetchMethod, setTablesFetchMethod] = useState<string | null>(null);
   const [userConnections, setUserConnections] = useState<Connection[]>([]);
   const [activeConnectionName, setActiveConnectionName] = useState<string | null>(null);
+  const [sqlCopied, setSqlCopied] = useState(false);
   const navigate = useNavigate();
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(GET_TABLES_SQL);
+    setSqlCopied(true);
+    setTimeout(() => setSqlCopied(false), 2000);
+  };
 
   useEffect(() => {
     const loadConnectionsAndSetInitial = async () => {
@@ -75,11 +84,11 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       try {
         const parsedVisibility: Record<string, boolean> = JSON.parse(savedVisibility);
         setTableVisibility(parsedVisibility);
-        
+
         const values = Object.values(parsedVisibility);
         const allTrue = values.every(v => v === true);
         const allFalse = values.every(v => v === false);
-        
+
         if (allTrue) {
           setVisibilityMode('all');
         } else if (allFalse) {
@@ -98,12 +107,12 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         setVisibilityMode('all');
       }
     } else {
-        const initialVisibility: Record<string, boolean> = {};
-        tables.forEach(table => {
-          initialVisibility[table.table_name] = true;
-        });
-        setTableVisibility(initialVisibility);
-        setVisibilityMode('all');
+      const initialVisibility: Record<string, boolean> = {};
+      tables.forEach(table => {
+        initialVisibility[table.table_name] = true;
+      });
+      setTableVisibility(initialVisibility);
+      setVisibilityMode('all');
     }
   }, [session.user.id, tables]);
 
@@ -163,7 +172,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       localStorage.setItem(visibilityKey, JSON.stringify(tableVisibility));
     }
   }, [tableVisibility, session.user.id]);
-  
+
   useEffect(() => {
     const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
     if (selectedTable) {
@@ -177,17 +186,17 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     try {
       setError(null);
       setLoading(true);
-      
+
       // Set the method being used - since we're using the RPC function, set it to that
       setTablesFetchMethod('RPC-функция (get_user_tables)');
-      
+
       // Add a small delay to ensure connection change has been processed
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       // Now getTables should use the active connection
       const data = await getTables();
       setTables(data || []);
-      
+
       if (!data || data.length === 0) {
         // This case should ideally be handled by the connection management useEffect
         // but keeping it here as a fallback or for when connections are removed
@@ -198,11 +207,11 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       if (data && data.length > 0) {
         const selectedTableKey = `supabaseAdminSelectedTable_${session.user.id}`;
         const savedSelectedTable = localStorage.getItem(selectedTableKey);
-        
+
         // Check if the currently selected table exists in the new data
         const currentTableExists = selectedTable && data.some(table => table.table_name === selectedTable);
         const savedTableExists = savedSelectedTable && data.some(table => table.table_name === savedSelectedTable);
-        
+
         // If current selected table doesn't exist in the new connection
         if (!currentTableExists) {
           // First try to restore the saved selected table if it exists in the new connection
@@ -220,9 +229,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         setSelectedTable(null);
       }
     } catch (err: any) {
-        setError(err.message || 'Произошла неизвестная ошибка при получении таблиц.');
-        // In case of an error, we might also clear the method info
-        setTablesFetchMethod(null);
+      setError(err.message || 'Произошла неизвестная ошибка при получении таблиц.');
+      // In case of an error, we might also clear the method info
+      setTablesFetchMethod(null);
     } finally {
       setLoading(false);
     }
@@ -244,9 +253,9 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       };
       return newVisibility;
     });
-    
+
     setVisibilityMode('custom');
-    
+
     setCustomTableVisibility(prev => {
       if (!prev) {
         return { ...tableVisibility, [tableName]: !tableVisibility[tableName] };
@@ -262,7 +271,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
     if (visibilityMode === 'custom' && !customTableVisibility) {
       setCustomTableVisibility({ ...tableVisibility });
     }
-    
+
     setTableVisibility(prev => {
       const newVisibility = { ...prev };
       Object.keys(newVisibility).forEach(tableName => {
@@ -270,10 +279,10 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       });
       return newVisibility;
     });
-    
+
     setVisibilityMode(show ? 'all' : 'none');
   };
-  
+
   const cycleVisibilityMode = () => {
     if (visibilityMode === 'all') {
       toggleAllTables(false);
@@ -306,7 +315,7 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
         console.error('Error parsing table order from localStorage', e);
       }
     }
-    
+
     return tables
       .filter(table => tableVisibility[table.table_name] !== false)
       .sort((a, b) => (orderMap[a.table_name] || Infinity) - (orderMap[b.table_name] || Infinity));
@@ -317,21 +326,21 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
       // Re-fetch connections to ensure the connection list is current
       const currentConnections = await connectionManager.getConnections();
       setUserConnections(currentConnections);
-      
+
       // Verify that the connection exists before setting it as active
       const connectionExists = currentConnections.some(conn => conn.connection_name === name);
       if (!connectionExists) {
         throw new Error(`Connection ${name} not found in the connection list`);
       }
-      
+
       await connectionManager.setActiveConnection(name);
       setActiveConnectionName(name);
       const lastActiveKey = `supabaseAdminLastActiveConnection_${session.user.id}`;
       localStorage.setItem(lastActiveKey, name);
-      
+
       // Clear the currently selected table to ensure proper refresh
       setSelectedTable(null);
-      
+
       // Force re-fetch tables for the new active connection
       await fetchTables();
     } catch (err: any) {
@@ -362,22 +371,43 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
             <div className="flex items-center justify-center h-full">
               <div className="text-center bg-gray-700 p-8 rounded-lg shadow-xl">
                 <h2 className="text-xl font-semibold text-red-400 mb-4">Произошла ошибка</h2>
-                <p className="text-gray-300 max-w-md whitespace-pre-line">{error}</p>
-                <button 
+                <p className="text-gray-300 max-w-md whitespace-pre-line mb-4">{error}</p>
+
+                {(error.includes('get_user_tables') || error.includes('get_public_tables') || error.includes('RPC')) && (
+                  <div className="mt-4 mb-6 text-left bg-gray-800 p-4 rounded border border-gray-600 w-full max-w-xl">
+                    <p className="text-sm text-gray-300 mb-2">
+                      Для исправления ошибки выполните этот SQL код в <a href="https://supabase.com/dashboard/project/_/sql" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">SQL Editor</a> вашего проекта:
+                    </p>
+                    <div className="relative">
+                      <pre className="bg-black p-3 rounded text-xs text-gray-300 overflow-x-auto font-mono">
+                        {GET_TABLES_SQL}
+                      </pre>
+                      <button
+                        onClick={handleCopySql}
+                        className="absolute top-2 right-2 p-2 bg-gray-700 rounded hover:bg-gray-600 text-white transition-colors"
+                        title="Копировать код"
+                      >
+                        {sqlCopied ? <FaCheck size={14} className="text-emerald-400" /> : <FaCopy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button
                   onClick={fetchTables}
-                  className="mt-6 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-md text-white font-semibold transition-colors"
+                  className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-md text-white font-semibold transition-colors"
                 >
                   Попробовать снова
                 </button>
               </div>
             </div>
           ) : loading || error === 'No active connection' ? (
-             <div className="flex items-center justify-center h-full">
-                <Spinner />
-             </div>
+            <div className="flex items-center justify-center h-full">
+              <Spinner />
+            </div>
           ) : selectedView === 'settings' ? (
-            <Settings 
-              user={session.user} 
+            <Settings
+              user={session.user}
               tables={tables}
               tableVisibility={tableVisibility}
               customTableVisibility={customTableVisibility}
@@ -388,10 +418,10 @@ const Dashboard: React.FC<DashboardProps> = ({ session }) => {
               onSetActiveConnection={handleSetActiveConnection}
             />
           ) : selectedTable ? (
-            <DataTable 
-              key={selectedTable} 
-              tableName={selectedTable} 
-              showToast={showToast} 
+            <DataTable
+              key={selectedTable}
+              tableName={selectedTable}
+              showToast={showToast}
               sortConfig={sortConfigs[selectedTable] || null}
               onSortChange={(config) => handleSortChange(selectedTable, config)}
             />
