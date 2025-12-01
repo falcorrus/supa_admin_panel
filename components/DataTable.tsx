@@ -25,8 +25,8 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalCell, setModalCell] = useState<EditingCell | null>(null);
   const [modalValue, setModalValue] = useState<any>('');
-  
-  const primaryKey = 'id'; // Assumption: primary key is always 'id'
+
+  const [primaryKey, setPrimaryKey] = useState('id');
 
   const fetchData = useCallback(async () => {
     try {
@@ -34,7 +34,21 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
       const tableData = await getTableData(tableName);
       setData(tableData);
       if (tableData.length > 0) {
-        setColumns(Object.keys(tableData[0]));
+        const cols = Object.keys(tableData[0]);
+        setColumns(cols);
+
+        // Dynamic Primary Key Detection
+        let detectedKey = 'id';
+        if (cols.includes('id')) {
+          detectedKey = 'id';
+        } else if (cols.includes('uuid')) {
+          detectedKey = 'uuid';
+        } else {
+          const potentialId = cols.find(c => c.toLowerCase().endsWith('_id') || c.toLowerCase().endsWith('id'));
+          detectedKey = potentialId || cols[0];
+        }
+        console.log(`[DataTable] Detected primary key for ${tableName}: ${detectedKey}`);
+        setPrimaryKey(detectedKey);
       } else {
         setColumns([]);
       }
@@ -74,7 +88,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
 
   const handleCellClick = (rowId: any, column: string, value: any) => {
     if (column === primaryKey) return; // Don't allow editing primary key
-    
+
     // Проверяем, является ли значение длинным текстом (>30 символов)
     if (typeof value === 'string' && value.length > 30) {
       // Открываем модальное окно для длинных текстов
@@ -92,7 +106,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
     if (!editingCell) return;
     const { rowId, column } = editingCell;
     const originalRow = data.find(r => r[primaryKey] === rowId);
-    
+
     if (!originalRow || originalRow[column] === editValue) {
       setEditingCell(null);
       return;
@@ -100,7 +114,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
 
     try {
       await updateRow(tableName, rowId, column, editValue);
-      const newData = data.map(row => 
+      const newData = data.map(row =>
         row[primaryKey] === rowId ? { ...row, [column]: editValue } : row
       );
       setData(newData);
@@ -129,21 +143,21 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
       return;
     }
     try {
-        const [insertedRow] = await insertRow(tableName, newRowData);
-        if(insertedRow){
-            setData([...data, insertedRow]);
-            showToast('Row added successfully!', 'success');
-        } else {
-            throw new Error("Insert operation did not return the new row.");
-        }
+      const [insertedRow] = await insertRow(tableName, newRowData);
+      if (insertedRow) {
+        setData([...data, insertedRow]);
+        showToast('Row added successfully!', 'success');
+      } else {
+        throw new Error("Insert operation did not return the new row.");
+      }
     } catch (err: any) {
-        showToast(`Add failed: ${err.message}`, 'error');
+      showToast(`Add failed: ${err.message}`, 'error');
     } finally {
-        setIsAddingRow(false);
-        setNewRowData({});
+      setIsAddingRow(false);
+      setNewRowData({});
     }
   };
-  
+
   const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleSave();
     if (e.key === 'Escape') setEditingCell(null);
@@ -151,10 +165,10 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
 
   const handleModalSave = async () => {
     if (!modalCell) return;
-    
+
     try {
       await updateRow(tableName, modalCell.rowId, modalCell.column, modalValue);
-      const newData = data.map(row => 
+      const newData = data.map(row =>
         row[primaryKey] === modalCell.rowId ? { ...row, [modalCell.column]: modalValue } : row
       );
       setData(newData);
@@ -188,13 +202,13 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
     <div className="text-center text-gray-400">
       <p>Table '{tableName}' is empty.</p>
     </div>
-    );
+  );
 
   return (
     <div className="bg-gray-800 shadow-lg rounded-lg overflow-hidden">
       <div className="p-4 flex justify-between items-center border-b border-gray-700">
         <h2 className="text-xl font-semibold text-white capitalize">{tableName}</h2>
-        <button 
+        <button
           onClick={() => setIsAddingRow(true)}
           disabled={isAddingRow}
           className="flex items-center bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded transition-colors"
@@ -211,11 +225,11 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
                 <th key={col} className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   <button onClick={() => handleSort(col)} className="group flex items-center space-x-1 focus:outline-none">
                     <span>{col}</span>
-                      {sortConfig?.key === col && (
-                        <span className="text-gray-300">
-                          {sortConfig.direction === 'asc' ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />}
-                        </span>
-                      )}
+                    {sortConfig?.key === col && (
+                      <span className="text-gray-300">
+                        {sortConfig.direction === 'asc' ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />}
+                      </span>
+                    )}
                   </button>
                 </th>
               ))}
@@ -231,7 +245,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
                       <input
                         type="text"
                         value={newRowData[col] || ''}
-                        onChange={(e) => setNewRowData({...newRowData, [col]: e.target.value})}
+                        onChange={(e) => setNewRowData({ ...newRowData, [col]: e.target.value })}
                         className="w-full bg-gray-600 text-white rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         placeholder={col}
                       />
@@ -240,8 +254,8 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
                 ))}
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end space-x-2">
-                    <button onClick={handleAddNewRow} className="text-green-400 hover:text-green-300"><CheckIcon className="w-5 h-5"/></button>
-                    <button onClick={() => { setIsAddingRow(false); setNewRowData({}); }} className="text-red-400 hover:text-red-300"><XIcon className="w-5 h-5"/></button>
+                    <button onClick={handleAddNewRow} className="text-green-400 hover:text-green-300"><CheckIcon className="w-5 h-5" /></button>
+                    <button onClick={() => { setIsAddingRow(false); setNewRowData({}); }} className="text-red-400 hover:text-red-300"><XIcon className="w-5 h-5" /></button>
                   </div>
                 </td>
               </tr>
@@ -251,7 +265,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
                 {columns.map((col) => (
                   <td key={col} className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                     {editingCell?.rowId === row[primaryKey] && editingCell?.column === col ? (
-                      <input 
+                      <input
                         type="text"
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
@@ -261,7 +275,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
                         className="w-full bg-gray-600 text-white rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     ) : (
-                      <span 
+                      <span
                         onClick={() => handleCellClick(row[primaryKey], col, row[col])}
                         className={`block w-full h-full ${col !== primaryKey && 'cursor-pointer'}`}
                         title={typeof row[col] === 'string' && row[col].length > 50 ? row[col] : undefined}
@@ -273,7 +287,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
                 ))}
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button onClick={() => handleDelete(row[primaryKey])} className="flex items-center bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-2 rounded transition-colors">
-                    <TrashIcon className="w-5 h-5"/>
+                    <TrashIcon className="w-5 h-5" />
                   </button>
                 </td>
               </tr>
@@ -281,7 +295,7 @@ const DataTable: React.FC<DataTableProps> = ({ tableName, showToast, sortConfig,
           </tbody>
         </table>
       </div>
-      
+
       {/* Модальное окно для редактирования длинных текстов */}
       <Modal isOpen={isModalOpen} onClose={handleModalClose} size="xl">
         <ModalOverlay />

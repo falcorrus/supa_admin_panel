@@ -60,26 +60,58 @@ export const getTableData = async (tableName: string) => {
 };
 
 export const updateRow = async (tableName: string, id: any, column: string, value: any) => {
-  const activeSupabase = connectionManager.getActiveConnection();
-  const { data, error } = await activeSupabase
+  const serviceRoleClient = connectionManager.getActiveServiceRoleConnection();
+  let client = serviceRoleClient || connectionManager.getActiveConnection();
+
+  let { data, error } = await client
     .from(tableName)
     .update({ [column]: value })
     .eq('id', id)
     .select();
 
+  // Fallback if Service Role Key is invalid
+  if (error && serviceRoleClient && error.message && error.message.includes('Invalid API key')) {
+    const connName = connectionManager.getActiveConnectionName();
+    console.warn(`[${connName}] Service role client failed with Invalid API key. Retrying with active connection (anon key).`);
+    client = connectionManager.getActiveConnection();
+    ({ data, error } = await client
+      .from(tableName)
+      .update({ [column]: value })
+      .eq('id', id)
+      .select());
+  }
+
   if (error) {
     console.error(`Ошибка при обновлении строки в ${tableName}:`, error);
     throw error;
   }
+
+  if (!data || data.length === 0) {
+    throw new Error(`Row with id ${id} not found or not updated. Check RLS policies if not using Service Role.`);
+  }
+
   return data;
 };
 
 export const deleteRow = async (tableName: string, id: any) => {
-  const activeSupabase = connectionManager.getActiveConnection();
-  const { error } = await activeSupabase
+  const serviceRoleClient = connectionManager.getActiveServiceRoleConnection();
+  let client = serviceRoleClient || connectionManager.getActiveConnection();
+
+  let { error } = await client
     .from(tableName)
     .delete()
     .eq('id', id);
+
+  // Fallback if Service Role Key is invalid
+  if (error && serviceRoleClient && error.message && error.message.includes('Invalid API key')) {
+    const connName = connectionManager.getActiveConnectionName();
+    console.warn(`[${connName}] Service role client failed with Invalid API key. Retrying with active connection (anon key).`);
+    client = connectionManager.getActiveConnection();
+    ({ error } = await client
+      .from(tableName)
+      .delete()
+      .eq('id', id));
+  }
 
   if (error) {
     console.error(`Ошибка при удалении строки из ${tableName}:`, error);
@@ -88,15 +120,33 @@ export const deleteRow = async (tableName: string, id: any) => {
 };
 
 export const insertRow = async (tableName: string, newRow: Record<string, any>) => {
-  const activeSupabase = connectionManager.getActiveConnection();
-  const { data, error } = await activeSupabase
+  const serviceRoleClient = connectionManager.getActiveServiceRoleConnection();
+  let client = serviceRoleClient || connectionManager.getActiveConnection();
+
+  let { data, error } = await client
     .from(tableName)
     .insert([newRow])
     .select();
+
+  // Fallback if Service Role Key is invalid
+  if (error && serviceRoleClient && error.message && error.message.includes('Invalid API key')) {
+    const connName = connectionManager.getActiveConnectionName();
+    console.warn(`[${connName}] Service role client failed with Invalid API key. Retrying with active connection (anon key).`);
+    client = connectionManager.getActiveConnection();
+    ({ data, error } = await client
+      .from(tableName)
+      .insert([newRow])
+      .select());
+  }
 
   if (error) {
     console.error(`Ошибка при вставке строки в ${tableName}:`, error);
     throw error;
   }
+
+  if (!data || data.length === 0) {
+    throw new Error(`Insert failed. No data returned.`);
+  }
+
   return data;
 };

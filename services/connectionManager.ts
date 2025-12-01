@@ -43,14 +43,14 @@ class ConnectionManager {
       console.error('Error fetching connections:', error);
       return [];
     }
-    
+
     // Фильтруем подключения, которые имеют полные данные шифрования
-    const completeConnections = (data || []).filter(conn => 
-      conn.encrypted_anon_key && 
-      conn.anon_key_iv && 
+    const completeConnections = (data || []).filter(conn =>
+      conn.encrypted_anon_key &&
+      conn.anon_key_iv &&
       conn.anon_key_auth_tag
     );
-    
+
     this.connections = completeConnections;
     return this.connections;
   }
@@ -68,14 +68,14 @@ class ConnectionManager {
     let { data: tenant } = await supabase.from('supadmin_users').select('id').eq('user_id', user.id).single();
     console.log('Tenant found:', tenant);
     if (!tenant) {
-        console.log('No tenant found, creating a new one...');
-        const { data, error } = await supabase.from('supadmin_users').insert({ user_id: user.id, name: user.email }).select('id').single();
-        if (error) {
-          console.error('Error creating tenant:', error);
-          throw error;
-        }
-        tenant = data;
-        console.log('New tenant created:', tenant);
+      console.log('No tenant found, creating a new one...');
+      const { data, error } = await supabase.from('supadmin_users').insert({ user_id: user.id, name: user.email }).select('id').single();
+      if (error) {
+        console.error('Error creating tenant:', error);
+        throw error;
+      }
+      tenant = data;
+      console.log('New tenant created:', tenant);
     }
     if (!tenant) {
       console.error('Could not create or find tenant');
@@ -124,30 +124,57 @@ class ConnectionManager {
     }
 
     // Проверяем, есть ли необходимые поля для расшифровки
-    if (!connection.encrypted_anon_key || 
-        !connection.anon_key_iv || 
-        !connection.anon_key_auth_tag) {
+    if (!connection.encrypted_anon_key ||
+      !connection.anon_key_iv ||
+      !connection.anon_key_auth_tag) {
       throw new Error(`Connection '${name}' has missing encryption parameters and needs to be re-added to the system`);
     }
 
     // Decrypt the anon key using the Edge Function
-    const anonKey = await this.decryptKey(
+    const rawAnonKey = await this.decryptKey(
       connection.encrypted_anon_key,
       connection.anon_key_iv,
       connection.anon_key_auth_tag
     );
+    const anonKey = rawAnonKey.trim();
 
     this.activeConnectionName = name;
-    this.activeClient = createClient(connection.db_url, anonKey);
+    this.activeConnectionName = name;
+    this.activeClient = createClient(connection.db_url, anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    });
 
     // NEW: Decrypt and set service role key if available
     if (connection.encrypted_service_role_key && connection.service_role_key_iv && connection.service_role_key_auth_tag) {
-      const serviceRoleKey = await this.decryptKey(
-        connection.encrypted_service_role_key,
-        connection.service_role_key_iv,
-        connection.service_role_key_auth_tag
-      );
-      this.activeServiceRoleClient = createClient(connection.db_url, serviceRoleKey);
+      try {
+        const serviceRoleKey = await this.decryptKey(
+          connection.encrypted_service_role_key,
+          connection.service_role_key_iv,
+          connection.service_role_key_auth_tag
+        );
+
+        if (serviceRoleKey) {
+          const trimmedServiceRoleKey = serviceRoleKey.trim();
+          console.log(`[ConnectionManager] Decrypted Service Role Key for ${name}: ${trimmedServiceRoleKey.substring(0, 5)}...${trimmedServiceRoleKey.substring(trimmedServiceRoleKey.length - 5)} (Length: ${trimmedServiceRoleKey.length})`);
+          this.activeServiceRoleClient = createClient(connection.db_url, trimmedServiceRoleKey, {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false
+            }
+          });
+        } else {
+          console.warn(`[ConnectionManager] Decrypted Service Role Key is empty for ${name}`);
+          this.activeServiceRoleClient = null;
+        }
+      } catch (err) {
+        console.error(`[ConnectionManager] Failed to decrypt Service Role Key for ${name}:`, err);
+        this.activeServiceRoleClient = null;
+      }
     } else {
       this.activeServiceRoleClient = null;
     }
@@ -214,6 +241,10 @@ class ConnectionManager {
   // NEW METHOD
   getActiveServiceRoleConnection(): SupabaseClient | null {
     return this.activeServiceRoleClient;
+  }
+
+  getActiveConnectionName(): string {
+    return this.activeConnectionName || 'Unknown';
   }
 }
 
